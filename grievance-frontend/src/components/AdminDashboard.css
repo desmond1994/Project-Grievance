@@ -1,0 +1,126 @@
+.admin-dashboard {
+  padding: 20px;
+}
+
+.admin-dashboard-title {
+  margin-bottom: 15px;
+  font-size: 1.6rem;
+}
+
+.admin-dashboard-table-wrapper {
+  overflow-x: auto;
+}
+
+.admin-grievance-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: #ffffff;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.admin-grievance-table th,
+.admin-grievance-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e0e0e0;
+  text-align: left;
+  font-size: 0.95rem;
+}
+
+.admin-grievance-table thead {
+  background-color: #f5f5f5;
+}
+
+.admin-grievance-table tr:hover {
+  background-color: #f9fafb;
+}
+
+.admin-empty-row {
+  text-align: center;
+  color: #666666;
+  padding: 16px;
+}
+
+/* Status pills */
+.status-pill {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  color: #ffffff;
+}
+
+.status-pending {
+  background-color: #f0ad4e;
+}
+
+.status-inprogress {
+  background-color: #0275d8;
+}
+
+.status-resolved {
+  background-color: #5cb85c;
+}
+
+.status-rejected {
+  background-color: #d9534f;
+}
+
+.status-reopened {
+  background-color: #6f42c1;
+}
+
+/* Open button */
+.admin-open-btn {
+  padding: 5px 12px;
+  font-size: 0.9rem;
+  border-radius: 4px;
+  border: none;
+  background-color: #007bff;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.admin-open-btn:hover {
+  background-color: #0056b3;
+}
+
+.admin-back-btn {
+  margin-bottom: 10px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: none;
+  background-color: #e9ecef;
+  cursor: pointer;
+}
+.admin-back-btn:hover {
+  background-color: #d6d9dd;
+}
+
+
+.admin-status-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.admin-status-tab {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid #cccccc;
+  background-color: #ffffff;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.admin-status-tab.active {
+  background-color: #2b4450;
+  color: #ffffff;
+  border-color: #2b4450;
+}
+
+.admin-status-count {
+  font-weight: 600;
+  margin-left: 4px;
+}

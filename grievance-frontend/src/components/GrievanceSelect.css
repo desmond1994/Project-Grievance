@@ -1,0 +1,36 @@
+
+.complaint-select__option {
+  background: none !important;
+  padding: 7.5px 0 !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+}
+
+.complaint-select__chip {
+  display: inline-block;
+  border-radius: 22px;
+  background: #f3fafd;
+  border: 1.5px solid #bde3dc;
+  color: #1b434d;
+  padding: 7px 22px;
+  font-weight: 600;
+  font-size: 1.07em;
+  transition: all .18s;
+}
+
+/* Highlight chip when option is focused/hovered */
+.complaint-select__option--is-focused .complaint-select__chip {
+  background: #e0f3ee;
+  border-color: #119588;
+  color: #119588;
+}
+
+/* Highlight chip when option is selected */
+.complaint-select__option--is-selected .complaint-select__chip {
+  background: #e6faff;
+  border: 2px solid #009688;
+  color: #009688;
+  font-weight: 700;
+  box-shadow: 0 2px 8px #a5d6a7;
+}
