@@ -66,33 +66,36 @@ class Grievance(models.Model):
     department = models.ForeignKey(Department, on_delete=models.CASCADE, null=True, blank=True)
     
     # 🔥 SLA FIELDS - CORRECTLY INSIDE CLASS
-    due_date = models.DateTimeField(null=True, blank=True)
+    due_date = models.DateField(null=True, blank=True)
     
     def save(self, *args, **kwargs):
         from django.utils import timezone
         from datetime import timedelta
         
-        # 🔥 FULL Multi-Level SLA Timers
-        if self.status == 'In Review':  # Triage
-            self.due_date = timezone.now() + timedelta(days=7)
-        elif self.status == 'Pending Approval':  # TopAuth 1st review
-            self.due_date = timezone.now() + timedelta(days=3)
-        elif self.status == 'In Progress':  # Dept (7d initial)
-            if not self.due_date:  # New In Progress
-                self.due_date = timezone.now() + timedelta(days=7)
-        elif self.status == 'Policy Decision':  # TopAuth 2nd review
-            self.due_date = timezone.now() + timedelta(days=5)  # Policy decision
+        now = timezone.now()
         
-        # 🔥 AUTO-ESCALATION Chain
-        if self.due_date and self.due_date < timezone.now().date():
+        # ✅ Convert datetime → date for DateField
+        if self.status == 'In Review':
+            self.due_date = (now + timedelta(days=7)).date()
+        elif self.status == 'Pending Approval':
+            self.due_date = (now + timedelta(days=3)).date()
+        elif self.status == 'In Progress':
+            if not self.due_date:
+                self.due_date = (now + timedelta(days=7)).date()
+        elif self.status == 'Policy Decision':
+            self.due_date = (now + timedelta(days=5)).date()
+        
+        # ✅ DateField vs date() comparison
+        if self.due_date and self.due_date < now.date():
             if self.status == 'In Review':
-                self.status = 'Pending Approval'  # Triage fail → TopAuth
+                self.status = 'Pending Approval'
             elif self.status == 'In Progress':
-                self.status = 'Policy Decision'    # Dept fail → TopAuth Policy
+                self.status = 'Policy Decision'
             elif self.status == 'Pending Approval':
-                self.status = 'Rejected'           # TopAuth fail → Close
+                self.status = 'Rejected'
         
         super().save(*args, **kwargs)
+
 
 
 # Rest of your models (unchanged)
