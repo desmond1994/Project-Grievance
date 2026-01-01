@@ -3,6 +3,8 @@ from rest_framework import viewsets, permissions, generics, status, serializers
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated, SAFE_METHODS, BasePermission
 from rest_framework.response import Response
+from django.utils import timezone
+from datetime import timedelta
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
@@ -205,14 +207,15 @@ class GrievanceViewSet(viewsets.ModelViewSet):
         grievance = Grievance.objects.get(id=pk)
         
         new_status = request.data.get('status')
+        # 🔥 FIXED: Use model STATUS_CHOICES
         if not new_status or new_status not in [choice[0] for choice in Grievance.STATUS_CHOICES]:
-            return Response({'error': 'Valid status required: Pending, In Progress, Resolved, Rejected'}, status=400)
+            return Response({'error': f'Valid status required: {[choice[0] for choice in Grievance.STATUS_CHOICES]}'}, status=400)
         
         notes = request.data.get('resolution_notes', '')
         
         grievance.status = new_status
         grievance.resolution_notes = notes
-        grievance.save()
+        grievance.save()  # ← Triggers SLA timers!
         
         GrievanceEvent.objects.create(
             grievance=grievance, user=request.user,
@@ -221,6 +224,29 @@ class GrievanceViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(grievance)
         return Response(serializer.data)
+
+    
+    @action(detail=False, methods=['get'], permission_classes=[])  #IsAuthenticated
+    def overdue(self, request):
+        """SLA Overdue: Grievances > 7 days In Review"""
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        cutoff = timezone.now() - timedelta(days=7)
+        # FIX: Filter users + select_related
+        overdue_qs = Grievance.objects.filter(
+            status='In Review',
+            due_date__lte=cutoff,
+            user__isnull=False  # ← FIX: No AnonymousUser
+        ).select_related('category__department', 'user').order_by('-due_date')[:20]
+        
+        serializer = self.get_serializer(overdue_qs, many=True)
+        return Response({
+            'count': overdue_qs.count(),
+            'cutoff': cutoff.isoformat(),
+            'results': serializer.data
+        })
+
 
 
 
@@ -310,6 +336,29 @@ class AdminGrievanceViewSet(viewsets.ReadOnlyModelViewSet):
             return Grievance.objects.filter(department=department).order_by('-created_at')
 
         return Grievance.objects.none()
+    
+    @action(detail=True, methods=['post'])
+    def grant_extension(self, request, pk=None):
+        grievance = self.get_object()
+        if grievance.status != 'Policy Decision':
+            return Response({'error': 'Only Policy Decision'}, status=400)
+        
+        grievance.status = 'In Progress'
+        grievance.due_date = timezone.now() + timedelta(days=14)
+        grievance.save()
+        
+        GrievanceEvent.objects.create(
+            grievance=grievance,
+            user=request.user,
+            action='Extension Granted',
+            notes='TopAuth granted 14-day extension'
+        )
+        
+        return Response({
+            'success': True, 
+            'message': f'14-day extension granted. Due: {grievance.due_date}',
+            'days_left': 14
+        })
 
 class MeView(APIView):
     authentication_classes = [TokenAuthentication]
