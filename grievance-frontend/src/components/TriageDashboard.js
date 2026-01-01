@@ -9,6 +9,7 @@ function TriageDashboard() {
   const [assignSuccess, setAssignSuccess] = useState({});
   const [assignError, setAssignError] = useState({});
   const [categoryAssign, setCategoryAssign] = useState({});
+  const [overdueGrievances, setOverdueGrievances] = useState([]);
 
   // Recursively flatten all leaf categories (for selection)
   function getLeafCategories(categories) {
@@ -43,6 +44,14 @@ function TriageDashboard() {
     fetchCategories();
   }, []);
 
+  useEffect(() => {
+  apiClient.get('/api/grievances/overdue/').then(res => {
+    setOverdueGrievances(res.data.results);
+    console.log(`${res.data.count} overdue grievances`);
+  }).catch(err => console.error('Overdue fetch failed', err));
+}, []);
+
+
   // LEAF complaint categories only
   const leafCategories = getLeafCategories(categories).filter(
     c => c.name !== 'Other' && c.name !== 'In Review'
@@ -67,6 +76,21 @@ function TriageDashboard() {
     <div className="triage-dashboard">
       <h2 className="triage-title">Triage Dashboard</h2>
 
+      {/* 🔥 SLA OVERDUE SECTION - ADD THIS */}
+    <div className="overdue-alert">
+      <h3>🚨 SLA Overdue ({overdueGrievances.length})</h3>
+      {overdueGrievances.length > 0 ? (
+        overdueGrievances.map(g => (
+          <div key={g.id} className="overdue-card">
+            <strong>{g.title}</strong> - Due: {new Date(g.due_date).toLocaleDateString()}
+            <br/>{g.description.slice(0,100)}...
+          </div>
+        ))
+      ) : (
+        <p>No overdue grievances</p>
+      )}
+    </div>
+    
       {grievances.length === 0 ? (
         <p className="triage-empty">No grievances pending triage.</p>
       ) : (
@@ -83,48 +107,49 @@ function TriageDashboard() {
               </tr>
             </thead>
             <tbody>
-              {grievances.map((g) => (
-                <tr key={g.id}>
-                  <td>{g.id}</td>
-                  <td className="triage-description">{g.description}</td>
-                  <td>{g.user_name}</td>
-                  <td>{g.submitted_at}</td>
-                  <td>
-                    <select
-                      className="triage-select"
-                      value={categoryAssign[g.id] || ''}
-                      onChange={(e) =>
-                        setCategoryAssign({ ...categoryAssign, [g.id]: e.target.value })
-                      }
-                    >
-                      <option value="" disabled>
-                        Select category
-                      </option>
-                      {leafCategories.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.full_path || c.name}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td>
-                    <button
-                      className="triage-assign-btn"
-                      onClick={() => handleAssign(g.id, categoryAssign[g.id])}
-                      disabled={assignLoading[g.id] || !categoryAssign[g.id]}
-                    >
-                      {assignLoading[g.id] ? 'Assigning...' : 'Assign'}
-                    </button>
-                    {assignSuccess[g.id] && (
-                      <span className="triage-status-success">Assigned!</span>
-                    )}
-                    {assignError[g.id] && (
-                      <span className="triage-status-error">{assignError[g.id]}</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
+  {grievances.map((g) => {
+    // Calculate SLA status for triage (7 days)
+    const daysLeft = g.due_date ? Math.floor((new Date(g.due_date) - new Date()) / (1000*60*60*24)) : 7;
+    const slaStatus = daysLeft < 0 ? 'overdue' : daysLeft <= 3 ? 'warning' : 'healthy';
+    
+    return (
+      <tr key={g.id} className={`triage-row ${slaStatus}`}>
+        <td><strong>{g.id}</strong></td>
+        <td className="triage-description">{g.description.slice(0,80)}...</td>
+        <td>{g.user_name}</td>
+        <td>{new Date(g.submitted_at).toLocaleDateString()}</td>
+        <td>
+          <select
+            className="triage-select"
+            value={categoryAssign[g.id] || ''}
+            onChange={(e) => setCategoryAssign({ ...categoryAssign, [g.id]: e.target.value })}
+          >
+            <option value="" disabled>Select category</option>
+            {leafCategories.map((c) => (
+              <option key={c.id} value={c.id}>{c.full_path || c.name}</option>
+            ))}
+          </select>
+        </td>
+        <td>
+          {/* SLA Badge */}
+          <span className={`sla-badge sla-${slaStatus}`}>
+            {daysLeft > 0 ? `${daysLeft}d` : 'OVERDUE'} {slaStatus === 'healthy' ? '🟢' : slaStatus === 'warning' ? '🟡' : '🔴'}
+          </span>
+          <br/>
+          <button
+            className="triage-assign-btn"
+            onClick={() => handleAssign(g.id, categoryAssign[g.id])}
+            disabled={assignLoading[g.id] || !categoryAssign[g.id]}
+          >
+            {assignLoading[g.id] ? 'Assigning...' : 'Assign'}
+          </button>
+          {assignSuccess[g.id] && <span className="triage-status-success">✓ Assigned!</span>}
+          {assignError[g.id] && <span className="triage-status-error">✗ {assignError[g.id]}</span>}
+        </td>
+      </tr>
+    );
+  })}
+</tbody>
           </table>
         </div>
       )}
