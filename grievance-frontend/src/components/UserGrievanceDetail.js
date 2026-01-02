@@ -1,37 +1,13 @@
+// src/components/UserGrievanceDetail.js
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import apiClient from '../apiClient';
 import '../App.css';
-import ImageViewer from './ImageViewer';
-
-function PhotoGallery({ photos }) {
-  const [selectedIndex, setSelectedIndex] = React.useState(0);
-
-  if (!photos || photos.length === 0) {
-    return <p>No photos uploaded.</p>;
-  }
-
-  return (
-    <div className="photo-gallery">
-      <ImageViewer image={photos[selectedIndex].image} width={400} height={300} />
-      <div className="photo-gallery-thumbnails">
-        {photos.map((photo, index) => (
-          <img
-            key={index}
-            src={photo.image}
-            alt={`Item ${index + 1} thumbnail`}
-            className={`photo-gallery-thumbnail ${index === selectedIndex ? 'selected' : ''}`}
-            onClick={() => setSelectedIndex(index)}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
+import PhotoGallery from './PhotoGallery';
 
 export default function UserGrievanceDetail() {
-  const { id } = useParams();          // <- get ID from route
-  const grievanceId = id;              // for clarity
+  const { id } = useParams();
+  const grievanceId = id;
   const [grievance, setGrievance] = useState(null);
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -74,7 +50,9 @@ export default function UserGrievanceDetail() {
     setReopenError(null);
     setReopenLoading(true);
     try {
-      await apiClient.post(`grievances/${grievanceId}/reopen/`, { reason: reopenReason });
+      await apiClient.post(`grievances/${grievanceId}/reopen/`, {
+        reason: reopenReason,
+      });
       setReopenReason('');
       const gRes = await apiClient.get(`grievances/${grievanceId}/`);
       setGrievance(gRes.data);
@@ -89,36 +67,58 @@ export default function UserGrievanceDetail() {
   if (error) return <p className="error-message">{error}</p>;
   if (!grievance) return null;
 
-const normalizedStatus =
+  const normalizedStatus =
     grievance.status === 'Pending at Triage' ? 'Pending' : grievance.status;
-  
-    return (
+
+  return (
     <div className="grievance-detail-card">
-      <button className="back-btn" onClick={() => navigate(-1)}>← Back</button>
+      <button className="back-btn" onClick={() => navigate(-1)}>
+        ← Back
+      </button>
       <div className="grievance-detail-header">
-                <span className={`status-badge status-${normalizedStatus.replace(/\s/g, '').toLowerCase()}`}>
+        <span
+          className={`status-badge status-${normalizedStatus
+            .replace(/\s/g, '')
+            .toLowerCase()}`}
+        >
           {normalizedStatus}
         </span>
 
-
-        <h2>{grievance.category_name || grievance.category?.name || 'Complaint'}</h2>
+        <h2>
+          {grievance.category_name ||
+            grievance.category?.name ||
+            'Complaint'}
+        </h2>
       </div>
-      <p><i>Last updated: {new Date(grievance.updated_at).toLocaleString()}</i></p>
+      <p>
+        <i>
+          Last updated: {new Date(grievance.updated_at).toLocaleString()}
+        </i>
+      </p>
 
       <div className="grievance-detail-section">
-<p>
+        <p>
           <strong>Department:</strong>{' '}
-          {grievance.department_name || grievance.category?.department?.name || 'N/A'}
+          {grievance.department_name ||
+            grievance.category?.department?.name ||
+            'N/A'}
         </p>
         <p>
           <strong>Category:</strong>{' '}
-          {grievance.category?.full_path || grievance.category_name || grievance.category?.name || 'N/A'}
+          {grievance.category?.full_path ||
+            grievance.category_name ||
+            grievance.category?.name ||
+            'N/A'}
           {grievance.category_name === 'In Review' && (
             <span> (at triage team)</span>
           )}
         </p>
-        <p><strong>Description:</strong> {grievance.description}</p>
-        <p><strong>Location:</strong> {grievance.location || 'N/A'}</p>
+        <p>
+          <strong>Description:</strong> {grievance.description}
+        </p>
+        <p>
+          <strong>Location:</strong> {grievance.location || 'N/A'}
+        </p>
       </div>
 
       <div className="grievance-detail-section">
@@ -140,7 +140,9 @@ const normalizedStatus =
                 <tr key={ev.id}>
                   <td>{new Date(ev.timestamp).toLocaleString()}</td>
                   <td>{ev.action}</td>
-                  <td>{(ev.user && (ev.user.username || ev.user)) || 'System'}</td>
+                  <td>
+                    {(ev.user && (ev.user.username || ev.user)) || 'System'}
+                  </td>
                   <td>{ev.notes || ''}</td>
                 </tr>
               ))}
@@ -149,9 +151,13 @@ const normalizedStatus =
         )}
       </div>
 
-      {grievance.resolution_images && grievance.resolution_images.length > 0 && (
-        <PhotoGallery photos={grievance.resolution_images} />
-      )}
+      {grievance.images && grievance.images.length > 0 && (
+  <PhotoGallery 
+    photos={grievance.images.map(img => ({
+      image: img.image.startsWith('http') ? img.image : `http://127.0.0.1:8000${img.image}`
+    }))} 
+  />
+)}
 
       {['Resolved', 'Rejected'].includes(grievance.status) && (
         <div className="grievance-detail-section">
@@ -167,7 +173,8 @@ const normalizedStatus =
 
           {showReopenReason && (
             <>
-              <label htmlFor="reopenReason">Reason for Reopening:</label><br />
+              <label htmlFor="reopenReason">Reason for Reopening:</label>
+              <br />
               <textarea
                 id="reopenReason"
                 rows="3"
@@ -176,7 +183,9 @@ const normalizedStatus =
                 placeholder="Enter reason here..."
                 style={{ width: '100%', marginBottom: '10px' }}
               />
-              {reopenError && <p className="error-message">{reopenError}</p>}
+              {reopenError && (
+                <p className="error-message">{reopenError}</p>
+              )}
               <button
                 className="reopen-btn"
                 onClick={handleReopen}

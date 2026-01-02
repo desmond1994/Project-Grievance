@@ -110,3 +110,160 @@
   50% { opacity: 0.7; }
   100% { opacity: 1; }
 }
+
+.badge { padding: 4px 8px; border-radius: 12px; font-weight: bold; }
+.overdue { background: #fee; color: #c33; }
+.warning { background: #ffd; color: #d66; }
+.ok { background: #efe; color: #3a6; }
+
+.sla-overdue { background: linear-gradient(135deg, #f87171, #ef4444); color: white; }
+
+.sla-header {
+  background: linear-gradient(135deg, #ea6666 0%, #a24b4b 100%);
+  color: white;
+  padding: 15px 20px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+}
+
+.sla-title {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.triage-link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  color: #2563eb;
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+}
+.triage-link-btn:hover {
+  color: #1d4ed8;
+}
+
+.triage-detail-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 32px 16px 48px;
+  background: #f3f4f6;
+  min-height: calc(100vh - 60px);
+}
+
+.triage-back-btn {
+  align-self: flex-start;
+  margin-left: max(16px, calc((100% - 800px) / 2));
+  margin-bottom: 16px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  color: #111827;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.triage-back-btn:hover {
+  background: #e5e7eb;
+}
+
+.triage-detail-card {
+  width: 100%;
+  max-width: 800px;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 24px 32px 28px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+}
+
+.triage-detail-title {
+  text-align: center;
+  margin: 0 0 20px;
+  font-size: 22px;
+  color: #111827;
+}
+
+.triage-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px 24px;
+  margin-bottom: 20px;
+}
+
+.triage-detail-item p {
+  margin: 0;
+  color: #111827;
+}
+
+.triage-detail-span {
+  grid-column: 1 / -1;
+}
+
+.triage-label {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6b7280;
+  margin-bottom: 4px;
+}
+
+.triage-image-wrapper {
+  margin-top: 8px;
+}
+
+.triage-image {
+  margin-top: 6px;
+  max-width: 100%;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.18);
+}
+
+/* Loading / error states */
+.triage-loading,
+.triage-error {
+  text-align: center;
+  padding: 24px;
+  font-size: 15px;
+}
+
+.triage-error {
+  color: #b91c1c;
+}
+
+/* For the PhotoGallery inside triage detail */
+.triage-detail-card .photo-gallery {
+  margin-top: 16px;
+}
+
+.triage-detail-card .photo-gallery-main {
+  margin-bottom: 10px;
+}
+
+.triage-detail-card .photo-gallery-thumbnails {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.triage-detail-card .photo-gallery-thumbnail {
+  width: 80px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 2px solid transparent;
+}
+
+.triage-detail-card .photo-gallery-thumbnail.selected {
+  border-color: #2563eb;
+}

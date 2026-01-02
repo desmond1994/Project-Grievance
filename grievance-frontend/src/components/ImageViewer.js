@@ -78,19 +78,25 @@ export default function ImageViewer({ image, width = 400, height = 300 }) {
         <button type="button" onClick={() => setZoom(z => Math.min(5, z + 0.25))}>+</button>
       </div>
       <img
-        src={image}
-        alt=""
-        style={{
-          pointerEvents: 'none',
-          userSelect: 'none',
-          width: `${width}px`,
-          height: `${height}px`,
-          objectFit: 'contain',
-          transform: `scale(${zoom}) translate(${pos.x / zoom}px, ${pos.y / zoom}px)`,
-          transition: dragging ? 'none' : 'transform 0.2s'
-        }}
-        draggable={false}
-      />
+  src={image}
+  alt=""
+  onLoad={() => console.log("✅ Image loaded:", image)}
+  onError={(e) => {
+    console.log("❌ Image failed:", image);
+    // optional: hide broken image element
+    e.currentTarget.style.display = "none";
+  }}
+  style={{
+    pointerEvents: 'none',
+    userSelect: 'none',
+    width: `${width}px`,
+    height: `${height}px`,
+    objectFit: 'contain',
+    transform: `scale(${zoom}) translate(${pos.x / zoom}px, ${pos.y / zoom}px)`,
+    transition: dragging ? 'none' : 'transform 0.2s'
+  }}
+  draggable={false}
+/>
     </div>
   );
 }

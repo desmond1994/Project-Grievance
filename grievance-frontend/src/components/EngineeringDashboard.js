@@ -9,21 +9,25 @@ const EngineeringDashboard = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const grievancesPerPage = 10;
 
-  // 🔥 SLA FUNCTIONS
   const daysLeft = (dueDate) => {
     if (!dueDate) return 'No SLA';
     const now = new Date();
     const due = new Date(dueDate);
     const diff = Math.ceil((due - now) / (1000 * 60 * 60 * 24));
-    return diff > 0 ? `+${diff}d` : `${diff}d`;
+    return diff;
+  };
+
+  const daysLeftLabel = (dueDate) => {
+    const d = daysLeft(dueDate);
+    if (d === 'No SLA') return d;
+    return d > 0 ? `+${d}d` : `${d}d`;
   };
 
   const getStatusColor = (days) => {
-    if (!days || days === 'No SLA') return 'secondary';
-    const numDays = parseInt(days.toString().replace(/[+-]/g, ''));
-    if (numDays < 0) return 'danger';      // 🔴 OVERDUE
-    if (numDays <= 2) return 'warning';    // 🟡 URGENT
-    return 'success';                      // 🟢 OK
+    if (days === 'No SLA') return 'secondary';
+    if (days < 0) return 'danger';
+    if (days <= 2) return 'warning';
+    return 'success';
   };
 
   useEffect(() => {
@@ -31,6 +35,8 @@ const EngineeringDashboard = () => {
       try {
         setLoading(true);
         setError(null);
+
+        // ✅ RULE: baseURL already contains /api/ so use relative endpoint
         const response = await apiClient.get('grievances/', {
           params: {
             department: 'Engineering',
@@ -38,6 +44,7 @@ const EngineeringDashboard = () => {
             search: searchTerm,
           },
         });
+
         setGrievances(response.data.results || response.data);
       } catch (err) {
         setError("Could not load grievances. Please try again later.");
@@ -49,17 +56,20 @@ const EngineeringDashboard = () => {
     fetchGrievances();
   }, [currentPage, searchTerm]);
 
-  // Filter grievances based on search term
   const filteredGrievances = grievances.filter((grievance) =>
-    grievance.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    grievance.description.toLowerCase().includes(searchTerm.toLowerCase())
+    (grievance.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (grievance.description || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Pagination
   const indexOfLastGrievance = currentPage * grievancesPerPage;
   const indexOfFirstGrievance = indexOfLastGrievance - grievancesPerPage;
   const currentGrievances = filteredGrievances.slice(indexOfFirstGrievance, indexOfLastGrievance);
   const totalPages = Math.ceil(filteredGrievances.length / grievancesPerPage);
+
+  const overdueCount = filteredGrievances.filter(g => {
+    const d = daysLeft(g.due_date);
+    return d !== 'No SLA' && d < 0;
+  }).length;
 
   if (loading) return <h2 className="text-center">Loading grievances...</h2>;
   if (error) return <h2 className="text-danger text-center">{error}</h2>;
@@ -70,12 +80,11 @@ const EngineeringDashboard = () => {
         <h1>Engineering Department Dashboard</h1>
         <div className="overdue-count">
           <span className="badge bg-danger fs-6">
-            Overdue: {filteredGrievances.filter(g => daysLeft(g.due_date) < 0).length}
+            Overdue: {overdueCount}
           </span>
         </div>
       </div>
 
-      {/* 🔥 Search */}
       <input
         type="text"
         className="form-control mb-4 w-50"
@@ -84,7 +93,6 @@ const EngineeringDashboard = () => {
         onChange={(e) => setSearchTerm(e.target.value)}
       />
 
-      {/* 🔥 PROFESSIONAL TABLE */}
       <div className="table-responsive">
         <table className="table table-hover">
           <thead className="table-dark">
@@ -100,34 +108,37 @@ const EngineeringDashboard = () => {
           </thead>
           <tbody>
             {currentGrievances.length > 0 ? (
-              currentGrievances.map((grievance) => (
-                <tr key={grievance.id} className="align-middle">
-                  <td><strong>#{grievance.id}</strong></td>
-                  <td>{grievance.title}</td>
-                  <td className="text-truncate" style={{maxWidth: '200px'}}>
-                    {grievance.description}
-                  </td>
-                  <td>
-                    <span className={`badge bg-${getStatusColor(daysLeft(grievance.due_date))}`}>
-                      {grievance.status}
-                    </span>
-                  </td>
-                  <td>{daysLeft(grievance.due_date)}</td>
-                  <td>
-                    <span className={`badge bg-${getStatusColor(daysLeft(grievance.due_date))}`}>
-                      {daysLeft(grievance.due_date)}
-                    </span>
-                  </td>
-                  <td>
-                    <button className="btn btn-primary btn-sm me-1">
-                      Update Status
-                    </button>
-                    <button className="btn btn-outline-secondary btn-sm">
-                      View Details
-                    </button>
-                  </td>
-                </tr>
-              ))
+              currentGrievances.map((grievance) => {
+                const d = daysLeft(grievance.due_date);
+                return (
+                  <tr key={grievance.id} className="align-middle">
+                    <td><strong>#{grievance.id}</strong></td>
+                    <td>{grievance.title}</td>
+                    <td className="text-truncate" style={{ maxWidth: '200px' }}>
+                      {grievance.description}
+                    </td>
+                    <td>
+                      <span className={`badge bg-${getStatusColor(d)}`}>
+                        {grievance.status}
+                      </span>
+                    </td>
+                    <td>{grievance.due_date ? new Date(grievance.due_date).toLocaleDateString() : 'No SLA'}</td>
+                    <td>
+                      <span className={`badge bg-${getStatusColor(d)}`}>
+                        {d === 'No SLA' ? 'No SLA' : daysLeftLabel(grievance.due_date)}
+                      </span>
+                    </td>
+                    <td>
+                      <button className="btn btn-primary btn-sm me-1">
+                        Update Status
+                      </button>
+                      <button className="btn btn-outline-secondary btn-sm">
+                        View Details
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })
             ) : (
               <tr>
                 <td colSpan="7" className="text-center py-4">
@@ -140,12 +151,11 @@ const EngineeringDashboard = () => {
         </table>
       </div>
 
-      {/* 🔥 Pagination */}
       {totalPages > 1 && (
         <div className="d-flex justify-content-between align-items-center mt-4">
           <div>
-            Showing {indexOfFirstGrievance + 1} to {Math.min(indexOfLastGrievance, filteredGrievances.length)} 
-            of {filteredGrievances.length} grievances
+            Showing {indexOfFirstGrievance + 1} to {Math.min(indexOfLastGrievance, filteredGrievances.length)}
+            {' '}of {filteredGrievances.length} grievances
           </div>
           <div className="btn-group">
             <button

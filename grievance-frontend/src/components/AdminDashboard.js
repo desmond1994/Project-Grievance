@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
 import AdminGrievanceEditor from './AdminGrievanceEditor';
 import { AuthContext } from '../context/AuthContext';
 import apiClient from '../apiClient';
@@ -6,7 +6,8 @@ import { useNavigate } from 'react-router-dom';
 import './AdminDashboard.css';
 
 const ADMIN_STATUS_TABS = [
-  'All', 'Pending', 'In Progress', 'Resolved', 'Rejected', 'Policy Decision', 'Pending Approval'
+  'All', 'Pending', 'In Progress', 'Resolved', 'Rejected',
+  'Policy Decision', 'Pending Approval'
 ];
 
 const daysLeft = (dueDate) => {
@@ -19,90 +20,94 @@ const daysLeft = (dueDate) => {
 
 const getStatusColor = (days) => {
   if (!days || days === 'No SLA') return 'secondary';
-  const numDays = parseInt(days.toString().replace(/[+-]/g, ''));
-  if (numDays < 0) return 'danger';      // RED: Overdue
-  if (numDays <= 2) return 'warning';    // YELLOW: Urgent
-  return 'success';                      // GREEN: OK
+  const numDays = parseInt(days.toString().replace(/[+-]/g, ''), 10);
+  if (numDays < 0) return 'danger';
+  if (numDays <= 2) return 'warning';
+  return 'success';
 };
 
 export default function AdminDashboard() {
   const { authToken } = useContext(AuthContext);
+
   const [grievances, setGrievances] = useState([]);
   const [activeStatus, setActiveStatus] = useState('All');
   const [editingId, setEditingId] = useState(null);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
   const navigate = useNavigate();
 
-  // 🔥 NEW: Extension handler
-  const grantExtension = async (grievanceId) => {
-    if (!window.confirm('Grant 14-day extension to department?')) return;
-    
-    try {
-      await apiClient.post(`/admin-grievances/${grievanceId}/grant_extension/`);
-      alert('✅ 14-day extension granted!');
-      fetchGrievances();  // Refresh
-    } catch (error) {
-      console.error('Extension failed:', error);
-      alert('❌ Extension failed');
-    }
-  };
-
   useEffect(() => {
-    if (!authToken) {
-      navigate('/login', { replace: true });
-    }
+    if (!authToken) navigate('/login', { replace: true });
   }, [authToken, navigate]);
 
-  const fetchGrievances = async () => {
+  const fetchGrievances = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await apiClient.get('admin-grievances/');
-      const filtered = res.data.filter(
-        g =>
-          g.category_name !== 'In Review' ||
-          g.department_name !== 'Grievance Triage'
-      );
-      setGrievances(filtered);
+
+      // const endpoint = isTopAuthority ? 'admin-grievances/' : 'grievances/'; // ✅ relative only
+      const endpoint = 'grievances/';
+
+      const res = await apiClient.get(endpoint);
+
+const data = res.data;
+const list = Array.isArray(data) ? data : (data?.results || []);
+setGrievances(list);
+
+
+      
       setError(null);
-    } catch (error) {
-      if (
-        error.response &&
-        (error.response.status === 401 || error.response.status === 403)
-      ) {
+    } catch (err) {
+      const status = err?.response?.status;
+      console.error('Fetch grievances error:', status, err?.response?.data);
+
+      if (status === 401 || status === 403) {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('userRole');
         navigate('/login', { replace: true });
         return;
       }
-      setError('Failed to load grievances.');
+
+      setError(`API Error ${status || '???'}`);
     } finally {
       setLoading(false);
     }
-  };
+  }, [navigate]);
 
   useEffect(() => {
-    if (authToken) {
+    if (authToken) fetchGrievances();
+  }, [authToken, fetchGrievances]);
+
+  const grantExtension = async (grievanceId) => {
+    const grievance = grievances.find(g => g.id === grievanceId);
+    if (!window.confirm(`Grant 14-day extension for "${grievance?.title || 'grievance'}?"`)) return;
+
+    try {
+      // ✅ relative only
+      await apiClient.post(`admin-grievances/${grievanceId}/grant_extension/`);
+      alert('✅ Extension granted! SLA updated.');
       fetchGrievances();
+    } catch (err) {
+      console.error('Extension error:', err?.response?.data || err.message);
+      alert(`❌ Failed: ${err?.response?.data?.error || 'Server error'}`);
     }
-  }, [authToken]);
+  };
 
   const filteredGrievances =
     activeStatus === 'All'
       ? grievances
       : activeStatus === 'Pending'
-      ? grievances.filter(
-          (g) => g.status === 'Pending' || g.status === 'Reopened'
-        )
-      : grievances.filter((g) => g.status === activeStatus);
+        ? grievances.filter(g => g.status === 'Pending' || g.status === 'Reopened')
+        : grievances.filter(g => g.status === activeStatus);
 
   const statusCounts = ADMIN_STATUS_TABS.reduce((acc, status) => {
     if (status === 'All') {
       acc[status] = grievances.length;
     } else if (status === 'Pending') {
-      acc[status] = grievances.filter(
-        (g) => g.status === 'Pending' || g.status === 'Reopened'
-      ).length;
+      acc[status] = grievances.filter(g => g.status === 'Pending' || g.status === 'Reopened').length;
     } else {
-      acc[status] = grievances.filter((g) => g.status === status).length;
+      acc[status] = grievances.filter(g => g.status === status).length;
     }
     return acc;
   }, {});
@@ -113,25 +118,23 @@ export default function AdminDashboard() {
   };
 
   const getCategoryDisplay = g => {
-    if (g.category && g.category.full_path) return g.category.full_path;
-    if (g.category_name) return g.category_name;
-    if (g.category && g.category.name) return g.category.name;
+    if (g.category?.full_path) return g.category.full_path;
+    if (g.category?.name) return g.category.name;
     return g.category || 'N/A';
   };
 
-  const getDepartmentDisplay = g => g.department_name || (g.category && g.category.department?.name) || 'N/A';
+  const getDepartmentDisplay = g =>
+  (g.category?.department?.name) || 'N/A';
+
 
   if (!authToken) return null;
-  if (loading) return <p>Loading grievances...</p>;
-  if (error) return <p style={{ color: 'red' }}>{error}</p>;
+  if (loading) return <div className="loading">Loading grievances...</div>;
+  if (error) return <div className="error">{error}</div>;
 
-  if (editingId)
+  if (editingId) {
     return (
-      <div>
-        <button
-          className="admin-back-btn"
-          onClick={() => setEditingId(null)}
-        >
+      <div className="admin-editor-container">
+        <button className="admin-back-btn" onClick={() => setEditingId(null)}>
           ← Back to Dashboard
         </button>
         <AdminGrievanceEditor
@@ -140,26 +143,45 @@ export default function AdminDashboard() {
         />
       </div>
     );
+  }
 
   return (
     <div className="admin-dashboard">
-      <h2 className="admin-dashboard-title">Admin Dashboard</h2>
+      <h2 className="admin-dashboard-title">
+        Admin Dashboard ({grievances.length} total)
+      </h2>
+
+      <div className="admin-stats-header">
+        <div className="stat-item stat-overdue">
+          <span className="stat-number">
+            {grievances.filter(g => {
+              const d = daysLeft(g.due_date);
+              return d !== 'No SLA' && parseInt(d.replace(/[+-]/g, ''), 10) < 0;
+            }).length}
+          </span>
+          <span className="stat-label">Overdue</span>
+        </div>
+
+        <div className="stat-item stat-pending">
+          <span className="stat-number">{statusCounts.Pending || 0}</span>
+          <span className="stat-label">Pending</span>
+        </div>
+
+        <div className="stat-item stat-total">
+          <span className="stat-number">{grievances.length}</span>
+          <span className="stat-label">Total</span>
+        </div>
+      </div>
 
       <div className="admin-status-tabs">
         {ADMIN_STATUS_TABS.map((status) => (
           <button
             key={status}
-            className={
-              activeStatus === status
-                ? 'admin-status-tab active'
-                : 'admin-status-tab'
-            }
+            className={`admin-status-tab ${activeStatus === status ? 'active' : ''}`}
             onClick={() => setActiveStatus(status)}
           >
-            {status}{' '}
-            <span className="admin-status-count">
-              {statusCounts[status] ?? 0}
-            </span>
+            {status}
+            <span className="admin-status-count">({statusCounts[status] ?? 0})</span>
           </button>
         ))}
       </div>
@@ -172,37 +194,38 @@ export default function AdminDashboard() {
               <th>Category</th>
               <th>Department</th>
               <th>Status</th>
-              <th>SLA</th>          {/* 🔥 NEW: SLA Column */}
-              <th>Action</th>       {/* 🔥 NEW: Extension Column */}
+              <th>SLA</th>
+              <th>Actions</th>
             </tr>
           </thead>
+
           <tbody>
             {filteredGrievances.map((g) => (
-              <tr key={g.id}>
-                <td>{g.title}</td>
+              <tr
+                key={g.id}
+                className={`status-row status-${g.status.replace(/\s/g, '').toLowerCase()}`}
+              >
+                <td className="grievance-title">{g.title}</td>
                 <td>{getCategoryDisplay(g)}</td>
                 <td>{getDepartmentDisplay(g)}</td>
                 <td>
-                  <span
-                    className={`status-pill status-${g.status.replace(/\s/g, '').toLowerCase()}`}
-                  >
+                  <span className={`status-pill status-${g.status.replace(/\s/g, '').toLowerCase()}`}>
                     {g.status}
                   </span>
                 </td>
-                {/* 🔥 NEW: SLA Badge */}
                 <td>
-                  <span className={`badge bg-${getStatusColor(daysLeft(g.due_date))}`}>
+                  <span className={`sla-badge bg-${getStatusColor(daysLeft(g.due_date))}`}>
                     {daysLeft(g.due_date)}
                   </span>
                 </td>
-                {/* 🔥 NEW: Extension + Open Buttons */}
-                <td>
-                  {g.status === 'Policy Decision' && (
+                <td className="admin-actions">
+                  {['Policy Decision', 'Pending Approval'].includes(g.status) && (
                     <button
-                      className="btn btn-warning btn-sm me-2"
+                      className="admin-extension-btn"
                       onClick={() => grantExtension(g.id)}
+                      title="Grant 14-day SLA extension"
                     >
-                      Extension
+                      +14d
                     </button>
                   )}
                   <button
@@ -214,10 +237,11 @@ export default function AdminDashboard() {
                 </td>
               </tr>
             ))}
+
             {filteredGrievances.length === 0 && (
               <tr>
                 <td colSpan="6" className="admin-empty-row">
-                  No grievances matching this status.
+                  No grievances matching "{activeStatus}" status.
                 </td>
               </tr>
             )}

@@ -7,18 +7,13 @@ const api = axios.create({
 });
 
 // Add a request interceptor
-api.interceptors.request.use(config => {
-  // Get the token from localStorage
+api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
-  
-  // If the token exists, add it to the Authorization header
   if (token) {
-    config.headers['Authorization'] = `Token ${token}`;
+    config.headers = config.headers ?? {};
+    config.headers.Authorization = `Token ${token}`;
   }
-  
   return config;
-}, error => {
-  return Promise.reject(error);
 });
 
 export default api;

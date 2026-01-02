@@ -5,7 +5,7 @@ export const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [auth, setAuth] = useState(() => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('authToken');
     const userJson = localStorage.getItem('user');
     const user = userJson ? JSON.parse(userJson) : null;
     return token ? { token, user } : null;
@@ -13,44 +13,40 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     if (auth && auth.token) {
-      localStorage.setItem('token', auth.token);
+      localStorage.setItem('authToken', auth.token);
       if (auth.user) {
         localStorage.setItem('user', JSON.stringify(auth.user));
       }
     } else {
-      localStorage.removeItem('token');
+      localStorage.removeItem('authToken');
       localStorage.removeItem('user');
     }
   }, [auth]);
 
   const fetchUserInfo = async () => {
-    try {
-      const res = await apiClient.get('me/');
-      setAuth((prev) => ({
-        token: prev?.token || null,
-        user: res.data,
-      }));
-    } catch (e) {
-      console.error('fetchUserInfo error', e);
-      setAuth(null);
-    }
-  };
+  const res = await apiClient.get('me/');
+  setAuth((prev) => ({
+    token: prev?.token || null,
+    user: res.data,
+  }));
+  return res.data; // ✅ return user
+};
 
-    const login = async (data) => {
-    const token = data.token || data.key;
+const login = async (data) => {
+  const token = data.token || data.key;
 
-    // store token so interceptor sees it
-    localStorage.setItem('token', token);
+  localStorage.setItem('authToken', token);
+  setAuth({ token, user: null });
 
-    setAuth({ token, user: null });
-    await fetchUserInfo();
-  };
+  const user = await fetchUserInfo();
+  return user; // ✅ return user to caller
+};
 
 
 
   const logout = () => {
     setAuth(null);
-    localStorage.removeItem('token');
+    localStorage.removeItem('authToken');
     localStorage.removeItem('user');
   };
 

@@ -1,4 +1,3 @@
-from urllib import request
 from rest_framework import viewsets, permissions, generics, status, serializers
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated, SAFE_METHODS, BasePermission
@@ -8,7 +7,7 @@ from datetime import timedelta
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
-from rest_framework.parsers import JSONParser
+from rest_framework.parsers import JSONParser, MultiPartParser, FormParser
 from .serializers import (
     UserSerializer,
     GrievanceSerializer,
@@ -16,19 +15,27 @@ from .serializers import (
     CategorySerializer,
     GrievanceEventSerializer,
     SubDepartmentSerializer,
-    UserRegistrationSerializer
+    UserRegistrationSerializer,
+    GrievanceImageSerializer,
 )
 from .models import Grievance, Department, SubDepartment, Category, GrievanceEvent, GrievanceImage
-from rest_framework.parsers import MultiPartParser, FormParser
 from transformers import pipeline
 from rest_framework.views import APIView
 from rest_framework.authentication import TokenAuthentication
+from django.db.models import Count, F, ExpressionWrapper, IntegerField
 
-# --- AI Complaint Type Suggestion ---
-classifier = pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
+from django.db.models.functions import Now
+from django.shortcuts import get_object_or_404
+
+# AI Complaint Type Suggestion
+classifier = None  # ✅ do not load model here
 
 @api_view(['POST'])
 def suggest_complaint_type(request):
+    global classifier
+    if classifier is None:
+        classifier = pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
+
     description = request.data.get('description', '')
     labels = [
         "Uncollected garbage", "Garbage dumping", "Contaminated water supply",
@@ -39,11 +46,9 @@ def suggest_complaint_type(request):
     if not description:
         return Response({"suggestions": []})
 
-    result = classifier(description, labels)
-    top_suggestions = result['labels'][:3]
-    return Response({"suggestions": top_suggestions})
+    result = classifier(description, candidate_labels=labels)
+    return Response({"suggestions": result["labels"][:3]})
 
-# --- Custom Login ---
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def custom_login(request):
@@ -56,13 +61,11 @@ def custom_login(request):
         return Response({
             'token': token.key,
             'user': user_data
-        })  
-    else:
-        return Response({'error': 'Invalid credentials'}, status=400)
+        })
+    return Response({'error': 'Invalid credentials'}, status=400)
 
 class UserRegistrationView(APIView):
     permission_classes = [AllowAny]
-
     def post(self, request, *args, **kwargs):
         serializer = UserRegistrationSerializer(data=request.data)
         if serializer.is_valid():
@@ -70,7 +73,6 @@ class UserRegistrationView(APIView):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-# --- Permissions ---
 class IsAdminOrReadOnly(BasePermission):
     def has_permission(self, request, view):
         if request.method in SAFE_METHODS:
@@ -80,7 +82,6 @@ class IsAdminOrReadOnly(BasePermission):
 class IsOwnerOrAdmin(permissions.BasePermission):
     def has_permission(self, request, view):
         return request.user and request.user.is_authenticated
-
     def has_object_permission(self, request, view, obj):
         if request.user.is_staff:
             return True
@@ -93,10 +94,9 @@ class IsTriageUser(BasePermission):
             request.user.groups.filter(name='TRIAGE_USER').exists()
         )
 
-# --- Grievance ViewSet ---
 class GrievanceViewSet(viewsets.ModelViewSet):
     serializer_class = GrievanceSerializer
-    permission_classes = [IsAuthenticated]  # temp [IsOwnerOrAdmin]
+    permission_classes = [IsAuthenticated, IsOwnerOrAdmin]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get_queryset(self):
@@ -106,200 +106,202 @@ class GrievanceViewSet(viewsets.ModelViewSet):
             return Grievance.objects.all()
 
         if user.groups.filter(name='DEPARTMENT_ADMIN').exists():
-            try:
-                department = Department.objects.get(admin=user)
-            except Department.DoesNotExist:
+            departments = Department.objects.filter(admin=user)
+            if not departments.exists():
                 return Grievance.objects.none()
-            return Grievance.objects.filter(department=department)
+            return Grievance.objects.filter(department__in=departments)
 
         if user.groups.filter(name='TRIAGE_USER').exists():
-            return Grievance.objects.filter(department__name='Grievance Triage')
+            return (
+                Grievance.objects
+                .filter(category__name="Other", status="In Review")
+                .order_by('-created_at')
+            )
+
+
 
         if user.is_staff:
             return Grievance.objects.all()
 
-        # ✅ FIX: User sees OWN grievances REGARDLESS of status/category
         return Grievance.objects.filter(user=user).order_by('-created_at')
 
-
     def perform_create(self, serializer):
-        category_instance = serializer.validated_data.get('category')
+        print("🔍 DATA:", dict(self.request.data))
+        print("🔍 FILES:", [f.name for f in self.request.FILES.getlist('images')])
+        print("🔍 FILES count:", len(self.request.FILES.getlist('images')))
+        user = self.request.user
         
-        if not category_instance:
-            raise serializers.ValidationError("A complaint category is required.")
+        # ✅ 1. SAVE grievance FIRST (creates grievance instance)
+        grievance = serializer.save(user=user)
         
-        description = serializer.validated_data.get('description', '')
-        title = description[:50] or "Untitled Grievance"
+        # ✅ 2. CREATE GrievanceImage records from FormData
+        for img_file in self.request.FILES.getlist('images'):
+            GrievanceImage.objects.create(
+                grievance=grievance,
+                image=img_file
+            )
         
-        print("FILES received in perform_create:", self.request.FILES)
-        images = self.request.FILES.getlist('images')
-        print(f"Number of images uploaded: {len(images)}")
+        # ✅ 3. TRIAGE logic (your existing code, but AFTER images)
+        if user.groups.filter(name='TRIAGE_USER').exists():
+            other_category = get_object_or_404(Category, name="Other")
+            grievance.category = other_category
+            grievance.status = "In Review"
+            grievance.save()
+            return
         
-        # ✅ Save grievance FIRST
-        grievance = serializer.save(user=self.request.user, title=title)
-        
-        # ✅ Set category/department AFTER save
-        if category_instance.name.strip().lower() == "other":
-            status_val = "Pending"
-            in_review_category = Category.objects.filter(name__iexact='In Review').first()
-            if not in_review_category or not in_review_category.department:
-                raise serializers.ValidationError("In Review category missing department.")
-            grievance.category = in_review_category
-            grievance.department = in_review_category.department
-            grievance.status = status_val
-        else:
-            if not category_instance.department:
-                raise serializers.ValidationError(f"Category '{category_instance.name}' needs department.")
-            grievance.category = category_instance
-            grievance.department = category_instance.department
-            grievance.status = "Pending"
-        
-        grievance.save()
-        
-        # ✅ Images AFTER grievance exists
-        for img_file in images:
-            GrievanceImage.objects.create(grievance=grievance, image=img_file)
-        
-        # ✅ Event AFTER grievance exists
-        GrievanceEvent.objects.create(
-            grievance=grievance,
-            user=self.request.user,
-            action="Created",
-            notes=f"Grievance created. Status: {grievance.status}"
+        # Citizen "Other" → triage
+        category = serializer.validated_data.get("category")
+        if category and category.name == "Other":
+            grievance.status = "In Review"
+            grievance.save()
+            return
+
+
+    @action(detail=True, methods=['post'], parser_classes=[MultiPartParser, FormParser], permission_classes=[IsAuthenticated, IsOwnerOrAdmin])
+    def upload_image(self, request, pk=None):
+        grievance = self.get_object()
+
+        file = request.FILES.get('image')
+        if not file:
+            return Response({'error': 'No image provided. Use FormData key: image'}, status=status.HTTP_400_BAD_REQUEST)
+
+        img = GrievanceImage.objects.create(grievance=grievance, image=file)
+        return Response(
+            GrievanceImageSerializer(img, context={'request': request}).data,
+            status=status.HTTP_201_CREATED
         )
 
     def perform_update(self, serializer):
-        instance = serializer.save()
-        images = self.request.FILES.getlist('images')
-        for img_file in images:
-            GrievanceImage.objects.create(grievance=instance, image=img_file)
-        GrievanceEvent.objects.create(
-            grievance=instance,
-            user=self.request.user,
-            action="Edited",
-            notes=f"Fields updated: status={instance.status}, notes={instance.resolution_notes}"
-        )
-
-    @action(detail=True, methods=['post'], url_path='reopen', permission_classes=[IsAuthenticated], parser_classes=[JSONParser])
-    def reopen(self, request, pk=None):
         grievance = self.get_object()
-        if grievance.status not in ['Resolved', 'Rejected']:
-            return Response(
-                {'error': 'Only resolved or rejected grievances can be reopened.'},
-                status=status.HTTP_400_BAD_REQUEST,
+
+        old_status = grievance.status
+        old_due_date = grievance.due_date
+        old_resolution_notes = grievance.resolution_notes
+        old_signed_document = grievance.signed_document.name if grievance.signed_document else None
+        old_resolution_image = grievance.resolution_image.name if grievance.resolution_image else None
+
+        updated = serializer.save()  # triggers your model.save() (SLA recalculation)
+
+        # 1) Status change event
+        if old_status != updated.status:
+            GrievanceEvent.objects.create(
+                grievance=updated,
+                user=self.request.user,
+                action='STATUS_CHANGED',
+                notes=f'{old_status} -> {updated.status}'
             )
-        reason = request.data.get('reason', '').strip()
-        if not reason:
-            return Response({'error': 'Reopen reason is required.'}, status=status.HTTP_400_BAD_REQUEST)
-        grievance.status = 'Reopened'
-        grievance.save(update_fields=['status'])
-        GrievanceEvent.objects.create(
-            grievance=grievance,
-            user=request.user,
-            action='Reopened',
-            notes=f'Reopened with reason: {reason}'
-        )
-        serializer = self.get_serializer(grievance)
-        return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @action(detail=True, methods=['patch'], permission_classes=[IsAuthenticated])
-    def update_status(self, request, pk=None):
-        grievance = Grievance.objects.get(id=pk)
-        
-        new_status = request.data.get('status')
-        # 🔥 FIXED: Use model STATUS_CHOICES
-        if not new_status or new_status not in [choice[0] for choice in Grievance.STATUS_CHOICES]:
-            return Response({'error': f'Valid status required: {[choice[0] for choice in Grievance.STATUS_CHOICES]}'}, status=400)
-        
-        notes = request.data.get('resolution_notes', '')
-        
-        grievance.status = new_status
-        grievance.resolution_notes = notes
-        grievance.save()  # ← Triggers SLA timers!
-        
-        GrievanceEvent.objects.create(
-            grievance=grievance, user=request.user,
-            action=f"Status: {new_status}", notes=notes
-        )
-        
-        serializer = self.get_serializer(grievance)
-        return Response(serializer.data)
+        # 2) SLA changed (due_date changed) event
+        if old_due_date != updated.due_date:
+            GrievanceEvent.objects.create(
+                grievance=updated,
+                user=self.request.user,
+                action='DUE_DATE_UPDATED',
+                notes=f'{old_due_date} -> {updated.due_date}'
+            )
 
-    
-    @action(detail=False, methods=['get'], permission_classes=[])  #IsAuthenticated
-    def overdue(self, request):
-        """SLA Overdue: Grievances > 7 days In Review"""
-        from django.utils import timezone
-        from datetime import timedelta
-        
-        cutoff = timezone.now() - timedelta(days=7)
-        # FIX: Filter users + select_related
-        overdue_qs = Grievance.objects.filter(
-            status='In Review',
-            due_date__lte=cutoff,
-            user__isnull=False  # ← FIX: No AnonymousUser
-        ).select_related('category__department', 'user').order_by('-due_date')[:20]
-        
-        serializer = self.get_serializer(overdue_qs, many=True)
-        return Response({
-            'count': overdue_qs.count(),
-            'cutoff': cutoff.isoformat(),
-            'results': serializer.data
-        })
+        # 3) Resolution notes updated
+        if old_resolution_notes != updated.resolution_notes:
+            GrievanceEvent.objects.create(
+                grievance=updated,
+                user=self.request.user,
+                action='RESOLUTION_NOTES_UPDATED',
+                notes='Updated'
+            )
+
+        # 4) Files uploaded
+        new_signed_document = updated.signed_document.name if updated.signed_document else None
+        if old_signed_document != new_signed_document and new_signed_document:
+            GrievanceEvent.objects.create(
+                grievance=updated,
+                user=self.request.user,
+                action='SIGNED_DOCUMENT_UPLOADED',
+                notes=new_signed_document
+            )
+
+        new_resolution_image = updated.resolution_image.name if updated.resolution_image else None
+        if old_resolution_image != new_resolution_image and new_resolution_image:
+            GrievanceEvent.objects.create(
+                grievance=updated,
+                user=self.request.user,
+                action='RESOLUTION_IMAGE_UPLOADED',
+                notes=new_resolution_image
+            )
 
 
-
-
-# --- TriageGrievanceViewSet WITH FIXED @action INSIDE CLASS ---
 class TriageGrievanceViewSet(viewsets.ModelViewSet):
     serializer_class = GrievanceSerializer
     permission_classes = [IsTriageUser]
-
     def get_queryset(self):
-        return Grievance.objects.filter(
-            category__name__in=["Other", "In Review"]
-        ).order_by('-created_at')
+        return (
+            Grievance.objects
+                .filter(category__name="Other", status="In Review")
+                .select_related('category')
+                .order_by('-created_at')
+        )
+
+class AdminGrievanceViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = GrievanceSerializer
+    
+    def get_permissions(self):
+        if self.action == 'grant_extension':
+            permission_classes = [IsAdminUser]
+        else:
+            permission_classes = [IsAuthenticated]
+        return [p() for p in permission_classes]
+
+    
+    def get_queryset(self):
+        user = self.request.user
+        if user.groups.filter(name='TOP_AUTHORITY').exists():
+            return Grievance.objects.all().order_by('-created_at')
+        return Grievance.objects.none()
+    
+  
+
 
     @action(detail=True, methods=['post'])
-    def assign(self, request, pk=None):
+    def grant_extension(self, request, pk=None):
         grievance = self.get_object()
-        new_category_id = request.data.get('category_id')
-        
-        if not new_category_id:
-            return Response({'error': 'category_id required'}, status=400)
-        
-        new_category = Category.objects.select_related(
-            'department', 
-            'sub_department__parent_department'
-        ).get(id=new_category_id)
-        
-        grievance.category = new_category
-        grievance.status = 'Pending'
-        
-        if new_category.sub_department:
-            grievance.department = new_category.sub_department.parent_department
-        elif new_category.department:
-            grievance.department = new_category.department
+        if grievance.status not in ['Policy Decision', 'Pending Approval']:
+            return Response({'error': f'Invalid status: {grievance.status}'}, status=400)
+        if grievance.due_date:
+            grievance.due_date += timedelta(days=14)
         else:
-            return Response({'error': f'{new_category.name} has no department'}, status=400)
-        
-        grievance.save()
-        
-        GrievanceEvent.objects.create(
-            grievance=grievance,
-            user=request.user,
-            action='Triage Assigned',
-            notes=f'{new_category.name} → {grievance.department.name}'
-        )
-        
-        return Response({
-            'success': True,
-            'new_category': new_category.name,
-            'department': grievance.department.name,
-            'department_id': grievance.department.id
-        })
+            grievance.due_date = timezone.now().date() + timedelta(days=14)
+        grievance.save(update_fields=['due_date'])
+        GrievanceEvent.objects.create(grievance=grievance, user=request.user, action='SLA_EXTENSION_GRANTED', notes=f'14-day extension')
+        return Response({'message': 'Extension granted', 'new_due_date': grievance.due_date.isoformat()})
 
-# --- Other ViewSets ---
+class AdminStatsViewSet(viewsets.ViewSet):
+    def list(self, request):
+        today = timezone.now().date()
+
+        stats = {
+            'total': Grievance.objects.count(),
+            'pending': Grievance.objects.filter(status__in=['Pending', 'Pending at Triage']).count(),
+            'in_progress': Grievance.objects.filter(status='In Progress').count(),
+            'resolved': Grievance.objects.filter(status='Resolved').count(),
+            'overdue': Grievance.objects.filter(due_date__lt=today).count(),
+        }
+        stats['sla'] = {
+            'healthy': Grievance.objects.filter(due_date__gte=today).count(),
+            'warning': Grievance.objects.filter(
+                due_date__range=[today - timedelta(days=3), today]
+            ).count(),
+            'critical': Grievance.objects.filter(
+                due_date__lt=today - timedelta(days=3)
+            ).count(),
+        }
+        stats['by_dept'] = (
+            Grievance.objects.values('department__name')
+            .annotate(count=Count('id'))
+            .order_by('-count')[:5]
+        )
+        return Response(stats)
+
+
+# Single instances - no duplicates
 class DepartmentViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Department.objects.all()
     serializer_class = DepartmentSerializer
@@ -318,58 +320,32 @@ class UserViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = UserSerializer
     permission_classes = [IsAdminUser]
 
-class AdminGrievanceViewSet(viewsets.ReadOnlyModelViewSet):
-    serializer_class = GrievanceSerializer
-    permission_classes = [IsAdminUser]
-
-    def get_queryset(self):
-        user = self.request.user
-
-        if user.groups.filter(name='TOP_AUTHORITY').exists():
-            return Grievance.objects.all().order_by('-created_at')
-
-        if user.groups.filter(name='DEPARTMENT_ADMIN').exists():
-            try:
-                department = Department.objects.get(admin=user)
-            except Department.DoesNotExist:
-                return Grievance.objects.none()
-            return Grievance.objects.filter(department=department).order_by('-created_at')
-
-        return Grievance.objects.none()
-    
-    @action(detail=True, methods=['post'])
-    def grant_extension(self, request, pk=None):
-        grievance = self.get_object()
-        if grievance.status != 'Policy Decision':
-            return Response({'error': 'Only Policy Decision'}, status=400)
-        
-        grievance.status = 'In Progress'
-        grievance.due_date = timezone.now() + timedelta(days=14)
-        grievance.save()
-        
-        GrievanceEvent.objects.create(
-            grievance=grievance,
-            user=request.user,
-            action='Extension Granted',
-            notes='TopAuth granted 14-day extension'
-        )
-        
-        return Response({
-            'success': True, 
-            'message': f'14-day extension granted. Due: {grievance.due_date}',
-            'days_left': 14
-        })
-
 class MeView(APIView):
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
-
     def get(self, request):
         serializer = UserSerializer(request.user)
         return Response(serializer.data)
 
 class GrievanceEventListView(generics.ListAPIView):
     serializer_class = GrievanceEventSerializer
+    permission_classes = [IsAuthenticated]
+
     def get_queryset(self):
         grievance_id = self.kwargs['grievance_id']
+        grievance = get_object_or_404(Grievance, id=grievance_id)
+
+        # same access rules as GrievanceViewSet
+        user = self.request.user
+        if user.is_staff or user.groups.filter(name='TOP_AUTHORITY').exists():
+            pass
+        elif user.groups.filter(name='DEPARTMENT_ADMIN').exists():
+            if not Department.objects.filter(admin=user, id=grievance.department_id).exists():
+                return GrievanceEvent.objects.none()
+        elif user.groups.filter(name='TRIAGE_USER').exists():
+            if not (grievance.category and grievance.category.name == "Other" and grievance.status == "In Review"):
+                return GrievanceEvent.objects.none()
+
+
+
         return GrievanceEvent.objects.filter(grievance_id=grievance_id).order_by('-timestamp')

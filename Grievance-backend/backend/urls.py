@@ -5,7 +5,7 @@ from django.conf.urls.static import static
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/', include('grievance_api.urls')),  # ONLY this line for API
+    path('api/', include('grievance_api.urls')),  # ✅ CRITICAL: api/ prefix
 ]
 
 if settings.DEBUG:

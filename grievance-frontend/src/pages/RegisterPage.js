@@ -22,13 +22,12 @@ function RegisterPage() {
  const registrationData = {
   username,
   email,
-  password1: password,
-  password2: passwordConfirm,
+  password,  // Single password field
 };
 
 
     try {
-      await apiClient.post('auth/registration/', registrationData);
+      await apiClient.post('auth/register/', registrationData);
       alert('Registration Successful! Please log in.');
       navigate('/login');
     } catch (err) {

@@ -1,8 +1,7 @@
 # backend/grievance_api/urls.py
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from django.utils import timezone
-from datetime import timedelta
+from .views import AdminStatsViewSet
 from .views import (
     GrievanceViewSet,
     TriageGrievanceViewSet,
@@ -27,6 +26,7 @@ router.register(r'subdepartments', SubDepartmentViewSet, basename='subdepartment
 router.register(r'categories', CategoryViewSet, basename='category')
 router.register(r'users', UserViewSet, basename='user')
 router.register(r'admin-grievances', AdminGrievanceViewSet, basename='admin-grievance')
+router.register(r'admin-stats', AdminStatsViewSet, basename='admin-stats')
 
 urlpatterns = [
     path('auth/login/', custom_login, name='custom-login'),
