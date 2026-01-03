@@ -141,20 +141,33 @@ class GrievanceViewSet(viewsets.ModelViewSet):
                 image=img_file
             )
         
-        # ✅ 3. TRIAGE logic (your existing code, but AFTER images)
+        # ✅ 3. TRIAGE logic (your existing code)
         if user.groups.filter(name='TRIAGE_USER').exists():
             other_category = get_object_or_404(Category, name="Other")
             grievance.category = other_category
             grievance.status = "In Review"
+            grievance.department = other_category.department  # ✅ NEW: Dept for triage
             grievance.save()
+            print(f"✅ Triage User: Dept={grievance.department.name}")
             return
         
         # Citizen "Other" → triage
-        category = serializer.validated_data.get("category")
-        if category and category.name == "Other":
+        category = grievance.category  # Already saved from serializer
+        if category.name == "Other":
             grievance.status = "In Review"
+            grievance.department = category.department  # ✅ NEW: Dept for Other
             grievance.save()
+            print(f"✅ Citizen Other: Dept={grievance.department.name}")
             return
+        
+        # ✅ 4. NORMAL categories → Auto-set department (NEW!)
+        if category and category.department:
+            grievance.department = category.department
+            grievance.save(update_fields=['department'])
+            print(f"✅ Normal: {category.name} → Dept={grievance.department.name}")
+        else:
+            print("⚠️ No dept: category missing or unlinked")
+
 
 
     @action(detail=True, methods=['post'], parser_classes=[MultiPartParser, FormParser], permission_classes=[IsAuthenticated, IsOwnerOrAdmin])

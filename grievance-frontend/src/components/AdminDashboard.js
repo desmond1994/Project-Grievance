@@ -38,43 +38,29 @@ export default function AdminDashboard() {
 
   const navigate = useNavigate();
 
+  // ✅ 1. fetchGrievances FIRST (line ~35)
+  const fetchGrievances = useCallback(async () => {
+    try {
+      setLoading(true);
+      const endpoint = 'grievances/';
+      const res = await apiClient.get(endpoint);
+      const data = res.data;
+      const list = Array.isArray(data) ? data : (data?.results || []);
+      setGrievances(list);
+      setError(null);
+    } catch (err) {
+      // ... your exact error code
+    } finally {
+      setLoading(false);
+    }
+  }, []);  // Remove navigate dep if possible
+
+  // ✅ 2. Login redirect
   useEffect(() => {
     if (!authToken) navigate('/login', { replace: true });
   }, [authToken, navigate]);
 
-  const fetchGrievances = useCallback(async () => {
-    try {
-      setLoading(true);
-
-      // const endpoint = isTopAuthority ? 'admin-grievances/' : 'grievances/'; // ✅ relative only
-      const endpoint = 'grievances/';
-
-      const res = await apiClient.get(endpoint);
-
-const data = res.data;
-const list = Array.isArray(data) ? data : (data?.results || []);
-setGrievances(list);
-
-
-      
-      setError(null);
-    } catch (err) {
-      const status = err?.response?.status;
-      console.error('Fetch grievances error:', status, err?.response?.data);
-
-      if (status === 401 || status === 403) {
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('userRole');
-        navigate('/login', { replace: true });
-        return;
-      }
-
-      setError(`API Error ${status || '???'}`);
-    } finally {
-      setLoading(false);
-    }
-  }, [navigate]);
-
+ 
   useEffect(() => {
     if (authToken) fetchGrievances();
   }, [authToken, fetchGrievances]);
@@ -123,8 +109,9 @@ setGrievances(list);
     return g.category || 'N/A';
   };
 
-  const getDepartmentDisplay = g =>
-  (g.category?.department?.name) || 'N/A';
+const getDepartmentDisplay = g => g.department_name || 'N/A';  // ✅ Backend field
+
+
 
 
   if (!authToken) return null;

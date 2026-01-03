@@ -92,13 +92,13 @@ class GrievanceSerializer(serializers.ModelSerializer):
     signed_document = serializers.FileField(required=False, allow_null=True, allow_empty_file=True)
     resolution_image = serializers.ImageField(required=False, allow_null=True, allow_empty_file=True)
     resolution_notes = serializers.CharField(required=False, allow_blank=True, allow_null=True)
-
+    department_name = serializers.CharField(source='department.name', read_only=True)
 
     class Meta:
         model = Grievance
         fields = [
         'id', 'title', 'description', 'category_id', 'category', 'status',
-        'department', 'location', 'due_date',
+        'department', 'department_name', 'location', 'due_date',
         'resolution_notes', 'signed_document', 'resolution_image',
         'images', 'user_name', 'created_at', 'user'
         ]
