@@ -22,9 +22,7 @@ from .models import Grievance, Department, SubDepartment, Category, GrievanceEve
 from transformers import pipeline
 from rest_framework.views import APIView
 from rest_framework.authentication import TokenAuthentication
-from django.db.models import Count, F, ExpressionWrapper, IntegerField
-
-from django.db.models.functions import Now
+from django.db.models import Count
 from django.shortcuts import get_object_or_404
 
 # AI Complaint Type Suggestion
@@ -101,101 +99,78 @@ class GrievanceViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-
         if user.groups.filter(name='TOP_AUTHORITY').exists():
             return Grievance.objects.all()
-
         if user.groups.filter(name='DEPARTMENT_ADMIN').exists():
             departments = Department.objects.filter(admin=user)
             if not departments.exists():
                 return Grievance.objects.none()
             return Grievance.objects.filter(department__in=departments)
-
         if user.groups.filter(name='TRIAGE_USER').exists():
             return (
                 Grievance.objects
                 .filter(category__name="Other", status="In Review")
                 .order_by('-created_at')
             )
-
-
-
         if user.is_staff:
             return Grievance.objects.all()
-
         return Grievance.objects.filter(user=user).order_by('-created_at')
 
     def perform_create(self, serializer):
         print("🔍 DATA:", dict(self.request.data))
         print("🔍 FILES:", [f.name for f in self.request.FILES.getlist('images')])
-        print("🔍 FILES count:", len(self.request.FILES.getlist('images')))
         user = self.request.user
         
-        # ✅ 1. SAVE grievance FIRST (creates grievance instance)
         grievance = serializer.save(user=user)
         
-        # ✅ 2. CREATE GrievanceImage records from FormData
         for img_file in self.request.FILES.getlist('images'):
             GrievanceImage.objects.create(
                 grievance=grievance,
                 image=img_file
             )
         
-        # ✅ 3. TRIAGE logic (your existing code)
         if user.groups.filter(name='TRIAGE_USER').exists():
             other_category = get_object_or_404(Category, name="Other")
             grievance.category = other_category
             grievance.status = "In Review"
-            grievance.department = other_category.department  # ✅ NEW: Dept for triage
+            grievance.department = other_category.department
             grievance.save()
             print(f"✅ Triage User: Dept={grievance.department.name}")
             return
         
-        # Citizen "Other" → triage
-        category = grievance.category  # Already saved from serializer
+        category = grievance.category
         if category.name == "Other":
+            other_category = get_object_or_404(Category, name="Other")
+            grievance.category = other_category
             grievance.status = "In Review"
-            grievance.department = category.department  # ✅ NEW: Dept for Other
+            grievance.department_id = 10  # Triage Dept ID
             grievance.save()
-            print(f"✅ Citizen Other: Dept={grievance.department.name}")
+            print(f"✅ Citizen Other → Triage Dept ID=10")
             return
         
-        # ✅ 4. NORMAL categories → Auto-set department (NEW!)
         if category and category.department:
             grievance.department = category.department
             grievance.save(update_fields=['department'])
             print(f"✅ Normal: {category.name} → Dept={grievance.department.name}")
-        else:
-            print("⚠️ No dept: category missing or unlinked")
-
-
-
-    @action(detail=True, methods=['post'], parser_classes=[MultiPartParser, FormParser], permission_classes=[IsAuthenticated, IsOwnerOrAdmin])
-    def upload_image(self, request, pk=None):
-        grievance = self.get_object()
-
-        file = request.FILES.get('image')
-        if not file:
-            return Response({'error': 'No image provided. Use FormData key: image'}, status=status.HTTP_400_BAD_REQUEST)
-
-        img = GrievanceImage.objects.create(grievance=grievance, image=file)
-        return Response(
-            GrievanceImageSerializer(img, context={'request': request}).data,
-            status=status.HTTP_201_CREATED
-        )
 
     def perform_update(self, serializer):
         grievance = self.get_object()
-
         old_status = grievance.status
         old_due_date = grievance.due_date
         old_resolution_notes = grievance.resolution_notes
         old_signed_document = grievance.signed_document.name if grievance.signed_document else None
         old_resolution_image = grievance.resolution_image.name if grievance.resolution_image else None
 
-        updated = serializer.save()  # triggers your model.save() (SLA recalculation)
+        updated = serializer.save()
 
-        # 1) Status change event
+        # Triage reassignment: Auto-set department + status
+        if self.request.user.groups.filter(name='TRIAGE_USER').exists() and updated.category and updated.category.department:
+            updated.department = updated.category.department
+            updated.status = "Pending"
+            updated.save(update_fields=['department', 'status'])
+            print(f"✅ Triage reassigned: {updated.category.name} → {updated.department.name}")
+
+        # Event logging (runs after all updates)
         if old_status != updated.status:
             GrievanceEvent.objects.create(
                 grievance=updated,
@@ -203,8 +178,6 @@ class GrievanceViewSet(viewsets.ModelViewSet):
                 action='STATUS_CHANGED',
                 notes=f'{old_status} -> {updated.status}'
             )
-
-        # 2) SLA changed (due_date changed) event
         if old_due_date != updated.due_date:
             GrievanceEvent.objects.create(
                 grievance=updated,
@@ -212,8 +185,6 @@ class GrievanceViewSet(viewsets.ModelViewSet):
                 action='DUE_DATE_UPDATED',
                 notes=f'{old_due_date} -> {updated.due_date}'
             )
-
-        # 3) Resolution notes updated
         if old_resolution_notes != updated.resolution_notes:
             GrievanceEvent.objects.create(
                 grievance=updated,
@@ -221,8 +192,6 @@ class GrievanceViewSet(viewsets.ModelViewSet):
                 action='RESOLUTION_NOTES_UPDATED',
                 notes='Updated'
             )
-
-        # 4) Files uploaded
         new_signed_document = updated.signed_document.name if updated.signed_document else None
         if old_signed_document != new_signed_document and new_signed_document:
             GrievanceEvent.objects.create(
@@ -231,7 +200,6 @@ class GrievanceViewSet(viewsets.ModelViewSet):
                 action='SIGNED_DOCUMENT_UPLOADED',
                 notes=new_signed_document
             )
-
         new_resolution_image = updated.resolution_image.name if updated.resolution_image else None
         if old_resolution_image != new_resolution_image and new_resolution_image:
             GrievanceEvent.objects.create(
@@ -240,6 +208,19 @@ class GrievanceViewSet(viewsets.ModelViewSet):
                 action='RESOLUTION_IMAGE_UPLOADED',
                 notes=new_resolution_image
             )
+
+    @action(detail=True, methods=['post'], parser_classes=[MultiPartParser, FormParser], permission_classes=[IsAuthenticated, IsOwnerOrAdmin])
+    def upload_image(self, request, pk=None):
+        grievance = self.get_object()
+        file = request.FILES.get('image')
+        if not file:
+            return Response({'error': 'No image provided. Use FormData key: image'}, status=status.HTTP_400_BAD_REQUEST)
+        img = GrievanceImage.objects.create(grievance=grievance, image=file)
+        return Response(
+            GrievanceImageSerializer(img, context={'request': request}).data,
+            status=status.HTTP_201_CREATED
+        )
+
 
 
 class TriageGrievanceViewSet(viewsets.ModelViewSet):
@@ -252,6 +233,11 @@ class TriageGrievanceViewSet(viewsets.ModelViewSet):
                 .select_related('category')
                 .order_by('-created_at')
         )
+    
+    def get_permissions(self):
+        if self.action == 'partial_update':  # PATCH
+            return [IsTriageUser()]  # Allow triage PATCH
+        return [IsAuthenticated()]
 
 class AdminGrievanceViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = GrievanceSerializer
@@ -289,7 +275,6 @@ class AdminGrievanceViewSet(viewsets.ReadOnlyModelViewSet):
 class AdminStatsViewSet(viewsets.ViewSet):
     def list(self, request):
         today = timezone.now().date()
-
         stats = {
             'total': Grievance.objects.count(),
             'pending': Grievance.objects.filter(status__in=['Pending', 'Pending at Triage']).count(),
@@ -299,19 +284,16 @@ class AdminStatsViewSet(viewsets.ViewSet):
         }
         stats['sla'] = {
             'healthy': Grievance.objects.filter(due_date__gte=today).count(),
-            'warning': Grievance.objects.filter(
-                due_date__range=[today - timedelta(days=3), today]
-            ).count(),
-            'critical': Grievance.objects.filter(
-                due_date__lt=today - timedelta(days=3)
-            ).count(),
+            'warning': Grievance.objects.filter(due_date__range=[today - timedelta(days=3), today]).count(),
+            'critical': Grievance.objects.filter(due_date__lt=today - timedelta(days=3)).count(),
         }
-        stats['by_dept'] = (
+        stats['by_dept'] = list(
             Grievance.objects.values('department__name')
             .annotate(count=Count('id'))
             .order_by('-count')[:5]
-        )
+        )  # ✅ Convert QuerySet to list for JSON
         return Response(stats)
+
 
 
 # Single instances - no duplicates
@@ -324,6 +306,7 @@ class SubDepartmentViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = SubDepartmentSerializer
 
 class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
+    permission_classes = [AllowAny]  # ✅ Public read for dropdowns
     def get_queryset(self):
         return Category.objects.filter(subcategories__isnull=True)
     serializer_class = CategorySerializer
