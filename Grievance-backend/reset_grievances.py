@@ -1,29 +1,33 @@
-#!/usr/bin/env python
-"""
-Django management command to reset Grievance + GrievanceEvent data to ID:1
-Run: python manage.py shell < reset_grievances.py
-"""
-
-from grievance_api.models import Grievance, GrievanceEvent
+import os
+from grievance_api.models import Grievance, User, Department, Category
+from django.conf import settings
 from django.db import connection
 
-print("🚀 Resetting Grievance data...")
+print("Grievance Reset - Users/Groups/Categories SAFE")
 
-# 1. Delete all data
-print("Deleting Grievance records...")
-Grievance.objects.all().delete()
+# Delete grievances + images
+count = 0
+for g in Grievance.objects.all():
+    if hasattr(g, 'image') and g.image:
+        img_path = os.path.join(settings.MEDIA_ROOT, g.image.name)
+        if os.path.exists(img_path):
+            os.remove(img_path)
+    g.delete()
+    count += 1
+print("Deleted %d grievances" % count)
 
-print("Deleting GrievanceEvent records...")
-GrievanceEvent.objects.all().delete()
+# SQLite ID reset
+with connection.cursor() as cursor:
+    cursor.execute("UPDATE sqlite_sequence SET seq = 0 WHERE name = 'grievance_api_grievance'")
+print("IDs reset to 1")
 
-# 2. Reset SQLite sequences (ID:1)
-print("Resetting ID sequences...")
-cursor = connection.cursor()
-cursor.execute("DELETE FROM sqlite_sequence WHERE name LIKE '%grievance%';")
-connection.commit()
+# Verify
+print("Users: %d" % User.objects.count())
+print("Depts: %d" % Department.objects.count())
+print("Categories: %d" % Category.objects.count())
+print("Grievances now: %d" % Grievance.objects.count())
+print("RESET COMPLETE")
 
-print("✅ COMPLETE! New grievances start at ID:1")
-print("💡 Test: Submit grievance → Check dashboard ID:1")
 
 
 # Command to run:

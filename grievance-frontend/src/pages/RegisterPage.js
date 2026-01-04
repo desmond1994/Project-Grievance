@@ -19,10 +19,11 @@ function RegisterPage() {
       return;
     }
 
- const registrationData = {
+const registrationData = {
   username,
   email,
-  password,  // Single password field
+  password1: password,      // ← Change
+  password2: passwordConfirm  // ← Add
 };
 
 

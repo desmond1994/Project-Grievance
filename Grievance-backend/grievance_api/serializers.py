@@ -4,8 +4,11 @@ from .models import (
     SubDepartment
 )
 from django.contrib.auth.models import User, Group
-
+from django.contrib.auth import authenticate  # ← ADD
+from rest_framework_simplejwt.tokens import RefreshToken  # ← ADD
 from django.contrib.auth.models import Group
+
+
 
 class GroupSerializer(serializers.ModelSerializer):
     class Meta:
@@ -29,8 +32,17 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         fields = ['username', 'email', 'password1', 'password2']
 
     def validate(self, data):
-        if data['password1'] != data['password2']:
+        password1 = data.get('password1')
+        if password1 != data.get('password2'):
             raise serializers.ValidationError("Passwords don't match")
+        
+        # Login existing (your flow) OR create new
+        user = authenticate(username=data['username'], password=password1)
+        if user:
+            refresh = RefreshToken.for_user(user)
+            return {'token': str(refresh.access_token), 'user': UserSerializer(user).data}
+        
+        # New user
         return data
 
     def create(self, validated_data):
