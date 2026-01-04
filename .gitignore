@@ -1,8 +1,6 @@
-node_modules/
-node_modules/
-.DS_Store
-.cache/
-build/
-dist/
 __pycache__/
 *.pyc
+db.sqlite3
+media/
+*.sql
+package-lock.json
