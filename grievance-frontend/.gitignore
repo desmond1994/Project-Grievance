@@ -1,2 +1,11 @@
 __pycache__/
 *.pyc
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+db.sqlite3
+media/
+test_grievances*.sql
+package-lock.json
