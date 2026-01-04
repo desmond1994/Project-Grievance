@@ -4,3 +4,5 @@ db.sqlite3
 media/
 *.sql
 package-lock.json
+db.sqlite3
+__pycache__/

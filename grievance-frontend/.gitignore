@@ -9,3 +9,4 @@ db.sqlite3
 media/
 test_grievances*.sql
 package-lock.json
+node_modules/
