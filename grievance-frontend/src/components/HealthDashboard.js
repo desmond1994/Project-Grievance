@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import apiClient from '../apiClient';
 
+
 const HealthDashboard = () => {
   const [grievances, setGrievances] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -37,11 +38,11 @@ const HealthDashboard = () => {
 
         // ✅ RULE: baseURL already has /api/ so relative endpoint only
         const response = await apiClient.get('grievances/', {
-          params: {
-            department: 'Health (Public Health)',
-            page: currentPage,
-            search: searchTerm,
-          },
+          pparams: {
+  department: 'Health (Public Health)',  // ✅ Screenshot EXACT (no spaces after)
+  page: currentPage,
+  search: searchTerm,
+},
         });
 
         setGrievances(response.data.results || response.data);
@@ -181,5 +182,6 @@ const HealthDashboard = () => {
     </div>
   );
 };
+
 
 export default HealthDashboard;

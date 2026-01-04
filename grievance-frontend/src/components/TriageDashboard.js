@@ -82,7 +82,7 @@ const leafCategories = categories.filter(c => c.name !== 'Other');
     setAssignError(prev => ({ ...prev, [grievanceId]: null }));
 
     try {
-     await apiClient.patch(`triage-grievances/${grievanceId}/assign/`, { category_id: categoryId });
+    await apiClient.patch(`triage-grievances/${grievanceId}/assign/`, { category_id: categoryId });
 
       setAssignSuccess(prev => ({ ...prev, [grievanceId]: true }));
       await fetchGrievances();
