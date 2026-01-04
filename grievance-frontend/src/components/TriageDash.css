@@ -267,3 +267,69 @@
 .triage-detail-card .photo-gallery-thumbnail.selected {
   border-color: #2563eb;
 }
+
+/* Table styling */
+.triage-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+.triage-table th,
+.triage-table td {
+  padding: 12px 8px;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+}
+
+.triage-table th {
+  background: #f8f9fa;
+  font-weight: 600;
+  color: #333;
+}
+
+/* Open button (matches Assign green) */
+.triage-link-btn {
+  background: #e8f5e8;
+  color: #28a745;
+  border: 1px solid #28a745;
+  padding: 4px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.triage-link-btn:hover {
+  background: #28a745;
+  color: white;
+}
+
+/* Existing Assign button (if needed) */
+.triage-assign-btn {
+  background: #28a745;
+  color: white;
+  border: none;
+  padding: 6px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.triage-assign-btn:hover:not(:disabled) {
+  background: #218838;
+}
+
+.triage-assign-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Description text */
+.triage-description {
+  max-width: 200px;
+  font-size: 14px;
+}
+
+.triage-description span {
+  color: #555;
+}

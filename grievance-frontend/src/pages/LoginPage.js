@@ -12,7 +12,7 @@ const LoginPage = () => {
   const navigate = useNavigate();
   const { login } = useContext(AuthContext);
 
-  const handleSubmit = async (e) => {
+    const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
@@ -31,20 +31,29 @@ const LoginPage = () => {
       // Load /me/ into context (still useful)
       await login(response.data);
 
-      // ✅ Your login response includes is_staff
-      const isStaff = response.data.user?.is_staff === true;
+      // ✅ NEW: Role-based using groups + is_staff (TRIAGE_USER → /triage)
+      const userData = response.data.user;
+      const groups = userData.groups || [];
+      
+      console.log("Login Debug - Groups:", groups.map(g => g.name), "is_staff:", userData.is_staff);
 
-      if (isStaff) {
+      if (groups.some(g => g.name === 'TRIAGE_USER')) {
+        navigate('/triage', { replace: true });
+        setTimeout(() => window.location.href = '/triage', 100);
+      } else if (userData.is_staff === true || groups.some(g => g.name === 'TOP_AUTHORITY' || g.name === 'DEPARTMENT_ADMIN')) {
         navigate('/admin', { replace: true });
+        setTimeout(() => window.location.href = '/admin', 100);
       } else {
         navigate('/', { replace: true });
+        setTimeout(() => window.location.href = '/', 100);
       }
-    } catch (err) {
+    } catch (err) {  // ← This catch stays
       setError(err.response?.data?.error || 'Invalid credentials');
     } finally {
       setLoading(false);
     }
   };
+
 
   return (
     <div className="login-container">

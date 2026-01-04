@@ -12,19 +12,7 @@ function TriageDashboard() {
   const [categoryAssign, setCategoryAssign] = useState({});
   const navigate = useNavigate();
 
-  // Recursively flatten leaf categories
-  function getLeafCategories(categories) {
-    if (!categories) return [];
-    let leaves = [];
-    categories.forEach(cat => {
-      if (cat.subcategories && cat.subcategories.length > 0) {
-        leaves = leaves.concat(getLeafCategories(cat.subcategories));
-      } else {
-        leaves.push(cat);
-      }
-    });
-    return leaves;
-  }
+
 
   const fetchGrievances = async () => {
     try {
@@ -43,6 +31,7 @@ function TriageDashboard() {
     try {
       const res = await apiClient.get('categories/');
       const data = res.data;
+      console.log('✅ Categories:', res.data);
 const list = Array.isArray(data) ? data : (data?.results || []);
 setCategories(list);
 
@@ -82,9 +71,7 @@ const SLABadge = ({ due_date }) => {
 };
 
 
-const leafCategories = getLeafCategories(categories).filter(
-  c => c.name !== 'Other'
-);
+const leafCategories = categories.filter(c => c.name !== 'Other');
 
 
   const handleAssign = async (grievanceId, categoryId) => {
@@ -95,7 +82,8 @@ const leafCategories = getLeafCategories(categories).filter(
     setAssignError(prev => ({ ...prev, [grievanceId]: null }));
 
     try {
-     await apiClient.patch(`grievances/${grievanceId}/`, { category_id: categoryId });
+     await apiClient.patch(`triage-grievances/${grievanceId}/assign/`, { category_id: categoryId });
+
       setAssignSuccess(prev => ({ ...prev, [grievanceId]: true }));
       await fetchGrievances();
     } catch (err) {
@@ -126,16 +114,17 @@ const leafCategories = getLeafCategories(categories).filter(
         <div className="triage-table-wrapper">
           <table className="triage-table">
             <thead>
-              <tr>
-                <th>ID</th>
-                <th>Description</th>
-                <th>Submitter</th>
-                <th>Date</th>
-                <th>SLA</th>
-                <th>New Category</th>
-                <th>Assign</th>
-              </tr>
-            </thead>
+  <tr>
+    <th>ID</th>
+    <th>Description</th>
+    <th>Submitter</th>
+    <th>Date</th>
+    <th>SLA</th>
+    <th>Open</th>          {/* ← NEW */}
+    <th>New Category</th>
+    <th>Assign</th>
+  </tr>
+</thead>
             <tbody>
               {sortedGrievances.map((g) => (
                 <tr
@@ -145,18 +134,21 @@ const leafCategories = getLeafCategories(categories).filter(
 
                   <td><strong>{g.id}</strong></td>
                   <td className="triage-description">
+                    <span>{(g.description || '').slice(0, 80)}...</span>  {/* Plain text */}
+                  </td>
+                  <td>{g.user_name}</td>
+                  <td>{g.created_at ? new Date(g.created_at).toLocaleDateString() : ''}</td>
+                  <td><SLABadge due_date={g.due_date} /></td>
+                  <td>  {/* NEW Open button */}
                     <button
                       type="button"
                       className="triage-link-btn"
                       onClick={() => navigate(`/triage/grievances/${g.id}`)}
                     >
-                      {(g.description || '').slice(0, 80)}...
+                      Open
                     </button>
                   </td>
-                  <td>{g.user_name}</td>
-                  <td>{g.created_at ? new Date(g.created_at).toLocaleDateString() : ''}</td>
-                  <td><SLABadge due_date={g.due_date} /></td>
-                  <td>
+                  <td>  {/* Existing New Category select */}
                     <select
                       className="triage-select"
                       value={categoryAssign[g.id] || ''}
