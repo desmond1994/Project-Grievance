@@ -107,14 +107,16 @@ class GrievanceViewSet(viewsets.ModelViewSet):
                 return Grievance.objects.none()
             return Grievance.objects.filter(department__in=departments)
         if user.groups.filter(name='TRIAGE_USER').exists():
-            return (
-                Grievance.objects
-                .filter(category__name="Other", status="In Review")
-                .order_by('-created_at')
+            return (  # ✅ QUERY ONLY
+            Grievance.objects
+            .filter(category__name="Other", status="In Review")
+            .select_related('department', 'category')  # ✅ Names load fast
+            .order_by('-created_at')
             )
         if user.is_staff:
             return Grievance.objects.all()
         return Grievance.objects.filter(user=user).order_by('-created_at')
+
 
     def perform_create(self, serializer):
         print("🔍 DATA:", dict(self.request.data))

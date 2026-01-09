@@ -10,7 +10,7 @@ import './GrievanceForm.css';
 function getLeafCategories(categories) {
   if (!categories) return [];
   let leaves = [];
-  categories.forEach(cat => {
+  categories.forEach((cat) => {
     if (cat.subcategories && cat.subcategories.length > 0) {
       leaves = leaves.concat(getLeafCategories(cat.subcategories));
     } else {
@@ -24,7 +24,6 @@ const GrievanceFormContent = () => {
   const { user } = useContext(AuthContext);
 
   const [description, setDescription] = useState('');
-  const [title, setTitle] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -35,7 +34,6 @@ const GrievanceFormContent = () => {
 
   const navigate = useNavigate();
 
-  // ✅ RULE: apiClient already has /api/ in baseURL → use relative endpoints only
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -112,56 +110,61 @@ const GrievanceFormContent = () => {
   const isReadyToSubmit = !!categoryId && !!description;
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  if (!categoryId) {
-    alert('Please select a category');
-    return;
-  }
-
-  const formData = new FormData();
-  formData.append('title', title || description.slice(0, 50));
-  formData.append('description', description);
-  formData.append('category_id', categoryId);
-  formData.append('location', location);
-
-  images.forEach((file) => formData.append('images', file));
-
-  try {
-    setLoading(true);
-    setError(null);
-
-    const token = localStorage.getItem('authToken');
-    const API_BASE = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000/api';
-    const response = await fetch(`${API_BASE}/grievances/`, {
-      method: 'POST',
-      headers: { 'Authorization': `Token ${token}` },
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(errorText || 'Submission failed');
-    }
-
-    const data = await response.json();
-    alert('✅ Grievance #' + data.id + ' submitted successfully!');
-    // Reset form
-    setTitle(''); setDescription(''); setCategoryId(''); setLocation(''); setImages([]);
-  } catch (err) {
-    console.error('Submit error:', err);
-    const errorMsg = err.message || 'Submission failed. Please try again.';
-    if (errorMsg.includes('401') || errorMsg.includes('token') || errorMsg.includes('Authentication')) {
-      localStorage.clear();
-      navigate('/login', { replace: true });
+    if (!categoryId) {
+      alert('Please select a category');
       return;
     }
-    setError(errorMsg);
-  } finally {
-    setLoading(false);
-  }
-};
 
+    const formData = new FormData();
+   
+    formData.append('description', description);
+    formData.append('category_id', categoryId);
+    formData.append('location', location);
+
+    images.forEach((file) => formData.append('images', file));
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const token = localStorage.getItem('authToken');
+      const API_BASE = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000/api';
+
+      const response = await fetch(`${API_BASE}/grievances/`, {
+        method: 'POST',
+        headers: { Authorization: `Token ${token}` },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Submission failed');
+      }
+
+      const data = await response.json();
+      alert('✅ Grievance #' + data.id + ' submitted successfully!');
+      navigate('/', { replace: true });
+    } catch (err) {
+      console.error('Submit error:', err);
+      const errorMsg = err.message || 'Submission failed. Please try again.';
+
+      if (
+        errorMsg.includes('401') ||
+        errorMsg.toLowerCase().includes('token') ||
+        errorMsg.toLowerCase().includes('authentication')
+      ) {
+        localStorage.clear();
+        navigate('/login', { replace: true });
+        return;
+      }
+
+      setError(errorMsg);
+    } finally {
+      setLoading(false);
+    }
+  }; // ✅ IMPORTANT: close handleSubmit here
 
   const handleImagesChange = (e) => {
     const newFiles = Array.from(e.target.files);
@@ -200,7 +203,8 @@ const GrievanceFormContent = () => {
           <Select
             options={selectOptions}
             value={selectOptions.find((opt) => opt.value === Number(categoryId)) || null}
-            onChange={(opt) => setCategoryId(Number(opt.value))}
+            onChange={(opt) => setCategoryId(opt ? Number(opt.value) : '')}  // ✅ guard null
+            isClearable
             placeholder="Select a complaint type..."
             components={{ Option: CustomOption }}
             classNamePrefix="complaint-select"

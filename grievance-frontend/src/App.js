@@ -2,7 +2,6 @@ import React, { useContext } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthContext, AuthProvider } from './context/AuthContext';
 
-import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import AdminPage from './pages/AdminPage';
@@ -18,8 +17,10 @@ import EngineeringDashboard from './components/EngineeringDashboard';
 
 import RequireAuth from './routes/RequireAuth';
 import RequireAdmin from './routes/RequireAdmin';
+import DashboardRouter from './pages/DashboardRouter';
 
 import './App.css';
+
 
 function AppContent() {
   const { isAuthenticated, logout } = useContext(AuthContext);
@@ -27,14 +28,22 @@ function AppContent() {
   return (
     <div className="App">
       <nav className="main-app-nav">
-        <div className="nav-left">
-          <span className="nav-title">Grievance App</span>
-        </div>
+  <div className="nav-left">
+    <span className="nav-logo">🚨</span>
+    <span className="nav-title">Grievance App</span>
+  </div>
 
-        <div className="nav-right">
-          {isAuthenticated && <button onClick={logout}>Logout</button>}
-        </div>
-      </nav>
+  <div className="nav-right">
+    {isAuthenticated && (
+      <button className="nav-logout" onClick={logout}>
+        Logout
+      </button>
+    )}
+  </div>
+</nav>
+
+
+
 
       <Routes>
         {/* Public */}
@@ -43,7 +52,7 @@ function AppContent() {
 
         {/* Citizen (any logged-in user, but your HomePage redirects staff away) */}
         <Route element={<RequireAuth />}>
-          <Route path="/" element={<HomePage />} />
+          <Route path="/" element={<DashboardRouter />} />
           <Route path="/submit-grievance" element={<GrievanceForm />} />
           <Route path="/user/grievances/:id" element={<UserGrievanceDetail />} />
         </Route>
