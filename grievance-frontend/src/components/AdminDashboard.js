@@ -42,7 +42,7 @@ export default function AdminDashboard() {
   const fetchGrievances = useCallback(async () => {
     try {
       setLoading(true);
-      const endpoint = 'grievances/';
+      const endpoint = 'admin-grievances/';
       const res = await apiClient.get(endpoint);
       const data = res.data;
       const list = Array.isArray(data) ? data : (data?.results || []);

@@ -31,30 +31,26 @@ const EngineeringDashboard = () => {
   };
 
   useEffect(() => {
-    const fetchGrievances = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+  const fetchGrievances = async () => {
+  try {
+    setLoading(true);
+    setError(null);
 
-        // ✅ RULE: baseURL already contains /api/ so use relative endpoint
-        const response = await apiClient.get('grievances/', {
-          params: {
-            department: 'Engineering',
-            page: currentPage,
-            search: searchTerm,
-          },
-        });
+    // ✅ EXACT URL from your router
+    const response = await apiClient.get('admin-grievances/');  
 
-        setGrievances(response.data.results || response.data);
-      } catch (err) {
-        setError("Could not load grievances. Please try again later.");
-      } finally {
-        setLoading(false);
-      }
-    };
+    setGrievances(response.data.results || response.data);
+  } catch (err) {
+    console.error('API Error:', err.response?.data || err.message);
+    setError("Could not load grievances.");
+  } finally {
+    setLoading(false);
+  }
+};
+  fetchGrievances();
+}, []);  // Remove deps—fetch once on mount
 
-    fetchGrievances();
-  }, [currentPage, searchTerm]);
+
 
   const filteredGrievances = grievances.filter((grievance) =>
     (grievance.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||

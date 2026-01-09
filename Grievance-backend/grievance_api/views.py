@@ -279,8 +279,14 @@ class AdminGrievanceViewSet(viewsets.ReadOnlyModelViewSet):
         user = self.request.user
         if user.groups.filter(name='TOP_AUTHORITY').exists():
             return Grievance.objects.all().order_by('-created_at')
+        if user.groups.filter(name='DEPARTMENT_ADMIN').exists():
+            departments = Department.objects.filter(admin=user)
+            if not departments.exists():
+                return Grievance.objects.none()
+            return Grievance.objects.filter(department__in=departments).order_by('-created_at')
         return Grievance.objects.none()
-  
+
+      
     @action(detail=True, methods=['post'])
     def grant_extension(self, request, pk=None):
         grievance = self.get_object()
@@ -297,24 +303,35 @@ class AdminGrievanceViewSet(viewsets.ReadOnlyModelViewSet):
 class AdminStatsViewSet(viewsets.ViewSet):
     def list(self, request):
         today = timezone.now().date()
+        qs = Grievance.objects.all()
+
+        user = request.user
+        if user.groups.filter(name='TOP_AUTHORITY').exists():
+            pass  # qs remains all
+        elif user.groups.filter(name='DEPARTMENT_ADMIN').exists():
+            departments = Department.objects.filter(admin=user)
+            if departments.exists():
+                qs = qs.filter(department__in=departments)
+            else:
+                qs = Grievance.objects.none()  # or return empty stats
+
         stats = {
-            'total': Grievance.objects.count(),
-            'pending': Grievance.objects.filter(status__in=['Pending', 'Pending at Triage']).count(),
-            'in_progress': Grievance.objects.filter(status='In Progress').count(),
-            'resolved': Grievance.objects.filter(status='Resolved').count(),
-            'overdue': Grievance.objects.filter(due_date__lt=today).count(),
+            'total': qs.count(),
+            'pending': qs.filter(status__in=['Pending', 'Pending at Triage']).count(),
+            'in_progress': qs.filter(status='In Progress').count(),
+            'resolved': qs.filter(status='Resolved').count(),
+            'overdue': qs.filter(due_date__lt=today).count(),
         }
         stats['sla'] = {
-            'healthy': Grievance.objects.filter(due_date__gte=today).count(),
-            'warning': Grievance.objects.filter(due_date__range=[today - timedelta(days=3), today]).count(),
-            'critical': Grievance.objects.filter(due_date__lt=today - timedelta(days=3)).count(),
+            'healthy': qs.filter(due_date__gte=today).count(),
+            'warning': qs.filter(due_date__range=[today - timedelta(days=3), today]).count(),
+            'critical': qs.filter(due_date__lt=today - timedelta(days=3)).count(),
         }
         stats['by_dept'] = list(
-            Grievance.objects.values('department__name')
-            .annotate(count=Count('id'))
-            .order_by('-count')[:5]
-        )  # ✅ Convert QuerySet to list for JSON
+            qs.values('department__name').annotate(count=Count('id')).order_by('-count')[:5]
+        )
         return Response(stats)
+
 
 
 
