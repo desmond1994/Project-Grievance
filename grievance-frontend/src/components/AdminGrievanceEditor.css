@@ -201,3 +201,9 @@
   border-radius: 4px;
   border: 1px solid #ccc;
 }
+
+.required { color: red; font-weight: bold; }
+.disabled-validation { opacity: 0.6; cursor: not-allowed; }
+.invalid-field { border-color: red !important; }
+.file-preview { color: green; font-size: 0.9em; }
+.status-display { padding: 8px; background: #f0f8ff; border-radius: 4px; }

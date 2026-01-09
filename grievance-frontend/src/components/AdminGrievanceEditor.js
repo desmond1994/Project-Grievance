@@ -28,21 +28,43 @@ export default function AdminGrievanceEditor({ grievanceId, onUpdateSuccess }) {
     return Math.ceil((due - now) / (1000 * 60 * 60 * 24));
   }, []);
 
+  // ✅ STRICT: Notes AND BOTH files required
+  const isFormValid = () => {
+    const hasNotes = resolutionNotes && resolutionNotes.trim().length >= 10;
+    const hasDoc = signedDocument;
+    const hasImage = resolutionImage;
+    return hasNotes && hasDoc && hasImage;  // BOTH files!
+  };
+
+  const validationError = () => {
+    if (!resolutionNotes || resolutionNotes.trim().length === 0) {
+      return 'Resolution notes required (min 10 characters).';
+    }
+    if (resolutionNotes.trim().length < 10) {
+      return 'Resolution notes too short (min 10 characters).';
+    }
+    if (!signedDocument) {
+      return 'Signed document is required.';
+    }
+    if (!resolutionImage) {
+      return 'Resolution photo is required.';
+    }
+    return null;
+  };
+
   useEffect(() => {
     const initGrievance = async () => {
       try {
         setLoading(true);
         let response = await apiClient.get(`grievances/${grievanceId}/`);
 
-        // ✅ AUTO-STATUS: Set to In Progress if Pending + authorized role
-        const authorizedRoles = ['dept_admin', 'top_authority', 'triage_officer'];
+        const authorizedRoles = ['triage_user', 'department_admin', 'top_authority'];
         if (response.data.status === 'Pending' && 
             user?.role && authorizedRoles.includes(user.role)) {
           await apiClient.patch(`grievances/${grievanceId}/`, { 
             status: 'In Progress',
             resolution_notes: `${user.username || 'Admin'} auto-set to In Progress on open`
           });
-          // Refetch updated data
           response = await apiClient.get(`grievances/${grievanceId}/`);
         }
 
@@ -90,16 +112,22 @@ export default function AdminGrievanceEditor({ grievanceId, onUpdateSuccess }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    const validationErr = validationError();
+    if (validationErr) {
+      setError(validationErr);
+      return;
+    }
+    
     setError(null);
     setSubmitLoading(true);
 
     const formData = new FormData();
-    formData.append('status', status);
-    if (resolutionNotes !== null && resolutionNotes !== undefined) {
-      formData.append('resolution_notes', resolutionNotes);
-    }
-    if (signedDocument) formData.append('signed_document', signedDocument);
-    if (resolutionImage) formData.append('resolution_image', resolutionImage);
+    formData.append('status', 'Resolved');  // Auto-resolve
+    
+    formData.append('resolution_notes', resolutionNotes.trim());
+    formData.append('signed_document', signedDocument);
+    formData.append('resolution_image', resolutionImage);
 
     try {
       await apiClient.patch(`grievances/${grievanceId}/`, formData, {
@@ -109,7 +137,7 @@ export default function AdminGrievanceEditor({ grievanceId, onUpdateSuccess }) {
       await refreshEvents();
       onUpdateSuccess?.();
     } catch (err) {
-      setError('Failed to update grievance.');
+      setError('Failed to resolve grievance.');
     } finally {
       setSubmitLoading(false);
     }
@@ -130,113 +158,109 @@ export default function AdminGrievanceEditor({ grievanceId, onUpdateSuccess }) {
   };
 
   if (loading) return <p>Loading grievance details...</p>;
-  if (error) return <p style={{ color: 'red' }}>{error}</p>;
+  if (error) return <div style={{ color: 'red', padding: '10px', border: '1px solid red', borderRadius: '4px', marginBottom: '10px' }}>{error}</div>;
 
   return (
     <div className="admin-editor">
-      <h2 className="admin-editor-title">Edit Grievance</h2>
+      <h2 className="admin-editor-title">Resolve Grievance #{grievanceId}</h2>
 
       <form onSubmit={handleSubmit} className="admin-editor-form">
         <div className="admin-editor-meta">
-          <div>
-            <strong>Department:</strong> {departmentName || 'N/A'}
+          <div><strong>Department:</strong> {departmentName || 'N/A'}</div>
+          <div><strong>Category:</strong> {(categoryInfo.full_path || categoryInfo.name) || 'N/A'}</div>
+        </div>
+
+        <div className="admin-editor-field">
+          <label>Current Status</label>
+          <div className="status-display">
+            <span className={`status-badge status-${status.toLowerCase().replace(/\s+/g, '-')}`}>
+              {status}
+            </span>
+            <small>(Will be Resolved on save)</small>
           </div>
-          <div>
-            <strong>Category/Sub-Department:</strong>{' '}
-            {(categoryInfo.full_path || categoryInfo.name) || 'N/A'}
+        </div>
+
+        <div className="sla-section">
+          <div className="sla-badge-container">
+            <span>SLA:</span>
+            <span className={`sla-badge ${
+              daysLeft === null ? 'healthy' :
+              daysLeft < 0 ? 'overdue' :
+              daysLeft <= 3 ? 'warning' : 'healthy'
+            }`}>
+              {daysLeft === null ? 'No SLA' : `${daysLeft}d`}
+            </span>
+          </div>
+          <div className="quick-actions">
+            <button type="button" className="quick-btn in-progress" onClick={() => setStatus('In Progress')}>
+              🚀 Mark In Progress
+            </button>
+            <button type="button" className="quick-btn extension" onClick={grantExtension}>
+              ⏰ +14d Extension
+            </button>
           </div>
         </div>
 
         <div className="admin-editor-field">
-          <label htmlFor="status">Status</label>
-          <select
-            id="status"
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            required
-          >
-            <option value="Pending">Pending</option>
-            <option value="In Progress">In Progress</option>
-            <option value="Resolved">Resolved</option>
-            <option value="Rejected">Rejected</option>
-          </select>
-
-          <div className="sla-section">
-            <div className="sla-badge-container">
-              <span>SLA:</span>
-              <span
-                className={`sla-badge ${
-                  daysLeft === null
-                    ? 'healthy'
-                    : daysLeft < 0
-                    ? 'overdue'
-                    : daysLeft <= 3
-                    ? 'warning'
-                    : 'healthy'
-                }`}
-              >
-                {daysLeft === null ? 'No SLA' : `${daysLeft}d`}
-              </span>
-            </div>
-
-            <div className="quick-actions">
-              <button
-                type="button"
-                className="quick-btn in-progress"
-                onClick={() => setStatus('In Progress')}
-              >
-                🚀 In Progress
-              </button>
-              <button
-                type="button"
-                className="quick-btn extension"
-                onClick={grantExtension}
-              >
-                ⏰ +14d Extension
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="admin-editor-field">
-          <label htmlFor="resolutionNotes">Resolution Notes</label>
+          <label htmlFor="resolutionNotes">
+            Resolution Notes <span className="required">*</span> (min 10 chars)
+          </label>
           <textarea
             id="resolutionNotes"
             value={resolutionNotes}
             onChange={(e) => setResolutionNotes(e.target.value)}
             rows="5"
+            placeholder="Detailed explanation of resolution steps taken..."
+            className={!isFormValid() ? 'invalid-field' : ''}
           />
+          <small className={resolutionNotes.trim().length >= 10 ? 'valid-count' : 'invalid-count'}>
+            {resolutionNotes.trim().length}/10+ characters
+          </small>
         </div>
 
         <div className="admin-editor-field">
-          <label htmlFor="signedDocument">Upload Signed Document</label>
+          <label htmlFor="signedDocument">
+            Signed Document <span className="required">*</span>
+          </label>
           <input
             id="signedDocument"
             type="file"
             accept=".pdf,.doc,.docx"
             onChange={(e) => setSignedDocument(e.target.files[0])}
+            className={!signedDocument ? 'invalid-field' : ''}
+            required
           />
+          {signedDocument && <small className="file-preview">✅ {signedDocument.name}</small>}
         </div>
 
         <div className="admin-editor-field">
-          <label htmlFor="resolutionImage">Upload Resolution Image</label>
+          <label htmlFor="resolutionImage">
+            Resolution Photo <span className="required">*</span>
+          </label>
           <input
             id="resolutionImage"
             type="file"
             accept="image/*"
             onChange={(e) => setResolutionImage(e.target.files[0])}
+            className={!resolutionImage ? 'invalid-field' : ''}
+            required
           />
+          {resolutionImage && <small className="file-preview">✅ {resolutionImage.name}</small>}
         </div>
 
         <div className="admin-editor-actions">
-          <button type="submit" disabled={submitLoading}>
-            {submitLoading ? 'Saving...' : 'Save'}
+          <button 
+            type="submit" 
+            disabled={submitLoading || !isFormValid()}
+            className={!isFormValid() ? 'disabled-validation' : ''}
+          >
+            {submitLoading ? 'Resolving...' : '✅ Resolve Grievance'}
           </button>
         </div>
       </form>
 
       <div className="admin-editor-images">
-        <h3>Resolution Images</h3>
+        <h3>Existing Resolution Images</h3>
         {resolutionImagesView.length === 0 ? (
           <p>No resolution images uploaded yet.</p>
         ) : (

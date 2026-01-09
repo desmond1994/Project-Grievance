@@ -212,14 +212,20 @@ class GrievanceViewSet(viewsets.ModelViewSet):
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
-        trigger_groups = {'Triage Officer', 'Dept Admin', 'Top Authority'}
-        if (instance.status == 'Pending' and 
-            set(request.user.groups.values_list('name', flat=True)) & trigger_groups):
+        # ✅ Match your actual group names from get_queryset()
+        trigger_groups = {'TRIAGE_USER', 'DEPARTMENT_ADMIN', 'TOP_AUTHORITY'}  
+        user_groups = set(request.user.groups.values_list('name', flat=True))
+        
+        print(f"🔍 retrieve: user_groups={user_groups}, grievance_status={instance.status}")  # DEBUG
+        
+        if instance.status == 'Pending' and user_groups.intersection(trigger_groups):
             instance.status = 'In Progress'
             instance.save(update_fields=['status'])
-            # Optional: create audit event
+            print(f"🔍 AUTO-UPDATED to In Progress")  # DEBUG
+            
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
+
 
 
     @action(detail=True, methods=['post'], parser_classes=[MultiPartParser, FormParser], permission_classes=[IsAuthenticated, IsOwnerOrAdmin])
@@ -255,26 +261,34 @@ class TriageGrievanceViewSet(viewsets.ModelViewSet):
     def partial_update(self, request, *args, **kwargs):
         grievance = self.get_object()
         if 'category_id' in request.data:
-            return self.assign(request, grievance.id)  # Route to assign
+            return self.assign(request, grievance.id)
         return super().partial_update(request, *args, **kwargs)
+
 
     @action(detail=True, methods=['post', 'patch'])
     def assign(self, request, pk=None):
         grievance = self.get_object()
-        category_id = request.data['category_id']
+        category_id = request.data.get('category_id')  # Use .get() safe
+        
+        if not category_id:
+            return Response({'error': 'category_id required'}, status=400)
+        
         category = Category.objects.get(id=category_id)
         grievance.category = category
         grievance.department = category.department
-        grievance.status = 'Pending'
         
-        print(f"BEFORE save: Dept={grievance.department}")  # DEBUG
+        # ✅ PRIORITIZE frontend status, fallback to 'Pending'
+        requested_status = request.data.get('status')
+        grievance.status = requested_status if requested_status else 'Pending'  # 'In Progress' from frontend!
+        
+        print(f"🔍 ASSIGN: category_id={category_id}, status={grievance.status}")  # DEBUG
         
         grievance.save()
-        
         grievance.refresh_from_db()
-        print(f"AFTER save: Dept={grievance.department}")  # DEBUG
         
-        return Response({'message': 'Assigned!'})
+        serializer = self.get_serializer(grievance)  # Full grievance data back
+        return Response(serializer.data)  # Includes updated status!
+
 
 
 
