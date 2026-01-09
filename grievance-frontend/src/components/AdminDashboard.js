@@ -1,8 +1,9 @@
+// src/components/AdminDashboard.js
 import React, { useState, useEffect, useContext, useCallback } from 'react';
-import AdminGrievanceEditor from './AdminGrievanceEditor';
+import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import apiClient from '../apiClient';
-import { useNavigate } from 'react-router-dom';
+import AdminGrievanceEditor from './AdminGrievanceEditor';
 import './AdminDashboard.css';
 
 const ADMIN_STATUS_TABS = [
@@ -28,17 +29,14 @@ const getStatusColor = (days) => {
 
 export default function AdminDashboard() {
   const { authToken } = useContext(AuthContext);
-
   const [grievances, setGrievances] = useState([]);
   const [activeStatus, setActiveStatus] = useState('All');
   const [editingId, setEditingId] = useState(null);
-
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const navigate = useNavigate();
 
-  // ✅ 1. fetchGrievances FIRST (line ~35)
   const fetchGrievances = useCallback(async () => {
     try {
       setLoading(true);
@@ -49,28 +47,37 @@ export default function AdminDashboard() {
       setGrievances(list);
       setError(null);
     } catch (err) {
-      // ... your exact error code
+      console.error('Fetch grievances error:', err);
+      setError('Failed to load grievances. Please refresh.');
     } finally {
       setLoading(false);
     }
-  }, []);  // Remove navigate dep if possible
+  }, []);
 
-  // ✅ 2. Login redirect
+  // Auth check
   useEffect(() => {
-    if (!authToken) navigate('/login', { replace: true });
+    if (!authToken) {
+      navigate('/login', { replace: true });
+      return;
+    }
   }, [authToken, navigate]);
 
- 
+  // Fetch data
   useEffect(() => {
-    if (authToken) fetchGrievances();
+    if (authToken) {
+      fetchGrievances();
+    }
   }, [authToken, fetchGrievances]);
 
   const grantExtension = async (grievanceId) => {
     const grievance = grievances.find(g => g.id === grievanceId);
-    if (!window.confirm(`Grant 14-day extension for "${grievance?.title || 'grievance'}?"`)) return;
+    if (!grievance) return;
+    
+    if (!window.confirm(`Grant 14-day extension for "${grievance.title || grievance.description?.slice(0, 50) || 'grievance'}?"`)) {
+      return;
+    }
 
     try {
-      // ✅ relative only
       await apiClient.post(`admin-grievances/${grievanceId}/grant_extension/`);
       alert('✅ Extension granted! SLA updated.');
       fetchGrievances();
@@ -80,12 +87,11 @@ export default function AdminDashboard() {
     }
   };
 
-  const filteredGrievances =
-    activeStatus === 'All'
-      ? grievances
-      : activeStatus === 'Pending'
-        ? grievances.filter(g => g.status === 'Pending' || g.status === 'Reopened')
-        : grievances.filter(g => g.status === activeStatus);
+  const filteredGrievances = activeStatus === 'All'
+    ? grievances
+    : activeStatus === 'Pending'
+      ? grievances.filter(g => g.status === 'Pending' || g.status === 'Reopened')
+      : grievances.filter(g => g.status === activeStatus);
 
   const statusCounts = ADMIN_STATUS_TABS.reduce((acc, status) => {
     if (status === 'All') {
@@ -103,20 +109,51 @@ export default function AdminDashboard() {
     fetchGrievances();
   };
 
-  const getCategoryDisplay = g => {
+  const getCategoryDisplay = (g) => {
     if (g.category?.full_path) return g.category.full_path;
     if (g.category?.name) return g.category.name;
-    return g.category || 'N/A';
+    return g.category_name || g.category || 'N/A';
   };
 
-const getDepartmentDisplay = g => g.department_name || 'N/A';  // ✅ Backend field
-
-
-
+  const getDepartmentDisplay = (g) => {
+    return g.department_name || g.category?.department?.name || 'N/A';
+  };
 
   if (!authToken) return null;
-  if (loading) return <div className="loading">Loading grievances...</div>;
-  if (error) return <div className="error">{error}</div>;
+
+  if (loading) {
+    return (
+      <div className="admin-dashboard">
+        <div className="loading-skeleton">
+          <div className="skeleton-title"></div>
+          <div className="skeleton-stats">
+            <div className="skeleton-stat"></div>
+            <div className="skeleton-stat"></div>
+            <div className="skeleton-stat"></div>
+          </div>
+          <div className="skeleton-table">
+            <div className="skeleton-row"></div>
+            <div className="skeleton-row"></div>
+            <div className="skeleton-row"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="admin-dashboard">
+        <div className="error-state">
+          <h2>⚠️ Dashboard Error</h2>
+          <p>{error}</p>
+          <button className="retry-btn" onClick={fetchGrievances}>
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (editingId) {
     return (
@@ -192,7 +229,9 @@ const getDepartmentDisplay = g => g.department_name || 'N/A';  // ✅ Backend fi
                 key={g.id}
                 className={`status-row status-${g.status.replace(/\s/g, '').toLowerCase()}`}
               >
-                <td className="grievance-title">{g.title}</td>
+                <td className="grievance-title">
+                  {g.title || g.description?.slice(0, 50) + '...'}
+                </td>
                 <td>{getCategoryDisplay(g)}</td>
                 <td>{getDepartmentDisplay(g)}</td>
                 <td>

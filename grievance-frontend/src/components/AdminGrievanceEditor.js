@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useContext } from 'react';
+import { AuthContext } from '../context/AuthContext';
 import apiClient from '../apiClient';
 import PhotoGallery from './PhotoGallery';
 import './AdminGrievanceEditor.css';
 
 export default function AdminGrievanceEditor({ grievanceId, onUpdateSuccess }) {
+  const { user } = useContext(AuthContext);
   const [status, setStatus] = useState('');
   const [resolutionNotes, setResolutionNotes] = useState('');
   const [signedDocument, setSignedDocument] = useState(null);
@@ -18,22 +20,31 @@ export default function AdminGrievanceEditor({ grievanceId, onUpdateSuccess }) {
   const [departmentName, setDepartmentName] = useState('');
   const [daysLeft, setDaysLeft] = useState(7);
   const [resolutionImagesView, setResolutionImages] = useState([]);
-  
- const computeDaysLeft = useCallback((dueDateStr) => {
-  if (!dueDateStr) return null;
 
-  const due = new Date(dueDateStr + 'T00:00:00'); // avoids YYYY-MM-DD timezone shift
-  const now = new Date();
-
-  return Math.ceil((due - now) / (1000 * 60 * 60 * 24));
-}, []);
-
+  const computeDaysLeft = useCallback((dueDateStr) => {
+    if (!dueDateStr) return null;
+    const due = new Date(dueDateStr + 'T00:00:00');
+    const now = new Date();
+    return Math.ceil((due - now) / (1000 * 60 * 60 * 24));
+  }, []);
 
   useEffect(() => {
-    const fetchGrievance = async () => {
+    const initGrievance = async () => {
       try {
         setLoading(true);
-        const response = await apiClient.get(`grievances/${grievanceId}/`);
+        let response = await apiClient.get(`grievances/${grievanceId}/`);
+
+        // ✅ AUTO-STATUS: Set to In Progress if Pending + authorized role
+        const authorizedRoles = ['dept_admin', 'top_authority', 'triage_officer'];
+        if (response.data.status === 'Pending' && 
+            user?.role && authorizedRoles.includes(user.role)) {
+          await apiClient.patch(`grievances/${grievanceId}/`, { 
+            status: 'In Progress',
+            resolution_notes: `${user.username || 'Admin'} auto-set to In Progress on open`
+          });
+          // Refetch updated data
+          response = await apiClient.get(`grievances/${grievanceId}/`);
+        }
 
         setStatus(response.data.status);
         setResolutionNotes(response.data.resolution_notes || '');
@@ -41,10 +52,9 @@ export default function AdminGrievanceEditor({ grievanceId, onUpdateSuccess }) {
         setCategoryInfo(response.data.category || {});
         setDepartmentName(
           response.data.department?.name ||
-            response.data.category?.department?.name ||
-            ''
+          response.data.category?.department?.name ||
+          ''
         );
-
         setResolutionImages(response.data.images || []);
         setError(null);
       } catch (err) {
@@ -63,9 +73,11 @@ export default function AdminGrievanceEditor({ grievanceId, onUpdateSuccess }) {
       }
     };
 
-    fetchGrievance();
-    fetchEvents();
-  }, [grievanceId, computeDaysLeft]);
+    if (grievanceId) {
+      initGrievance();
+      fetchEvents();
+    }
+  }, [grievanceId, computeDaysLeft, user]);
 
   const refreshEvents = async () => {
     try {
@@ -84,17 +96,15 @@ export default function AdminGrievanceEditor({ grievanceId, onUpdateSuccess }) {
     const formData = new FormData();
     formData.append('status', status);
     if (resolutionNotes !== null && resolutionNotes !== undefined) {
-  formData.append('resolution_notes', resolutionNotes);
-}
-
+      formData.append('resolution_notes', resolutionNotes);
+    }
     if (signedDocument) formData.append('signed_document', signedDocument);
     if (resolutionImage) formData.append('resolution_image', resolutionImage);
 
     try {
-     await apiClient.patch(`grievances/${grievanceId}/`, formData, {
-  headers: { 'Content-Type': 'multipart/form-data' },
-});
-
+      await apiClient.patch(`grievances/${grievanceId}/`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
 
       await refreshEvents();
       onUpdateSuccess?.();
@@ -108,12 +118,9 @@ export default function AdminGrievanceEditor({ grievanceId, onUpdateSuccess }) {
   const grantExtension = async () => {
     setError(null);
     try {
-      // ✅ keep consistent with AdminDashboard: grant_extension (underscore)
       await apiClient.post(`admin-grievances/${grievanceId}/grant_extension/`);
-
       const response = await apiClient.get(`grievances/${grievanceId}/`);
       setDaysLeft(computeDaysLeft(response.data.due_date));
-
       alert('✅ Extension granted +14 days!');
       await refreshEvents();
       onUpdateSuccess?.();
@@ -158,22 +165,21 @@ export default function AdminGrievanceEditor({ grievanceId, onUpdateSuccess }) {
             <div className="sla-badge-container">
               <span>SLA:</span>
               <span
-  className={`sla-badge ${
-    daysLeft === null
-      ? 'healthy'
-      : daysLeft < 0
-        ? 'overdue'
-        : daysLeft <= 3
-          ? 'warning'
-          : 'healthy'
-  }`}
->
-  {daysLeft === null ? 'No SLA' : `${daysLeft}d`}
-</span>
+                className={`sla-badge ${
+                  daysLeft === null
+                    ? 'healthy'
+                    : daysLeft < 0
+                    ? 'overdue'
+                    : daysLeft <= 3
+                    ? 'warning'
+                    : 'healthy'
+                }`}
+              >
+                {daysLeft === null ? 'No SLA' : `${daysLeft}d`}
+              </span>
             </div>
 
             <div className="quick-actions">
-              {/* ✅ IMPORTANT: type="button" so it doesn't submit the form */}
               <button
                 type="button"
                 className="quick-btn in-progress"
@@ -181,7 +187,6 @@ export default function AdminGrievanceEditor({ grievanceId, onUpdateSuccess }) {
               >
                 🚀 In Progress
               </button>
-
               <button
                 type="button"
                 className="quick-btn extension"

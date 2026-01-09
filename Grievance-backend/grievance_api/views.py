@@ -210,6 +210,18 @@ class GrievanceViewSet(viewsets.ModelViewSet):
                 notes=new_resolution_image
             )
 
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        trigger_groups = {'Triage Officer', 'Dept Admin', 'Top Authority'}
+        if (instance.status == 'Pending' and 
+            set(request.user.groups.values_list('name', flat=True)) & trigger_groups):
+            instance.status = 'In Progress'
+            instance.save(update_fields=['status'])
+            # Optional: create audit event
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
+
     @action(detail=True, methods=['post'], parser_classes=[MultiPartParser, FormParser], permission_classes=[IsAuthenticated, IsOwnerOrAdmin])
     def upload_image(self, request, pk=None):
         grievance = self.get_object()

@@ -1,335 +1,172 @@
+/* TriageDash.css - Blue GrievanceApp Theme (COMPLETE REPLACE) */
+
 .triage-dashboard {
-  padding: 20px;
+  padding: 1.5rem;
+  background: #f8fafc;  /* Matches detail bg */
+  min-height: 100vh;
 }
 
 .triage-title {
-  margin-bottom: 15px;
-  font-size: 1.6rem;
+  margin: 0 0 1.5rem 0;
+  font-size: 1.75rem;
+  color: #1e3a8a;       /* Theme blue */
+  font-weight: 700;
 }
 
-.triage-empty {
-  color: #666666;
-  text-align: center;
+/* SLA Header - Blue Gradient */
+.sla-header {
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  color: white;
+  padding: 1rem 1.25rem;
+  border-radius: 10px;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 4px 12px rgba(59,130,246,0.3);
 }
 
+.sla-title {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+}
+
+/* Table - Blue Theme */
 .triage-table-wrapper {
-  overflow-x: auto;
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  border: 1px solid #e2e8f0;
 }
 
 .triage-table {
   width: 100%;
   border-collapse: collapse;
-  background-color: #ffffff;
-  border-radius: 6px;
-  overflow: hidden;
+  font-size: .88rem;
 }
 
 .triage-table th,
 .triage-table td {
-  padding: 10px 12px;
-  border-bottom: 1px solid #e0e0e0;
+  padding: .75rem .875rem;
   text-align: left;
-  font-size: 0.95rem;
+  border-bottom: 1px solid #f1f5f9;
 }
 
-.triage-table thead {
-  background-color: #f5f5f5;
+.triage-table th {
+  background: #dbeafe;              /* Blue header */
+  color: #1e40af;
+  font-weight: 600;
+  font-size: .8rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
 }
 
 .triage-table tr:hover {
-  background-color: #f9fafb;
+  background: #eff6ff;              /* Light blue hover */
 }
 
+/* SLA Badges - Compact */
+.sla-badge {
+  padding: .25rem .6rem;
+  border-radius: 12px;
+  font-size: .72rem;
+  font-weight: 700;
+}
+.sla-overdue { 
+  background: linear-gradient(135deg, #ef4444, #dc2626); 
+  color: white; 
+  animation: pulse .8s infinite;
+}
+.sla-warning { background: #fef3c7; color: #92400e; }
+.sla-ok { background: #d1fae5; color: #065f46; }
+
+/* Description - Tight */
 .triage-description {
-  max-width: 360px;
+  max-width: 280px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.triage-select {
-  padding: 4px 6px;
-  font-size: 0.9rem;
+/* Buttons - Blue Theme */
+.triage-link-btn {
+  background: #3b82f6 !important;    /* Blue "Open" */
+  color: white !important;
+  border: none;
+  padding: .4rem .875rem;
+  border-radius: 6px;
+  font-size: .8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .15s;
+}
+.triage-link-btn:hover {
+  background: #2563eb !important;
+  transform: translateY(-1px);
 }
 
 .triage-assign-btn {
-  padding: 5px 10px;
-  font-size: 0.9rem;
-  border-radius: 4px;
-  border: none;
-  background-color: #28a745;
-  color: #ffffff;
-  cursor: pointer;
-  margin-right: 6px;
-}
-
-.triage-assign-btn:disabled {
-  background-color: #a9d5b0;
-  cursor: default;
-}
-
-.triage-status-success {
-  color: #28a745;
-  font-size: 0.85rem;
-}
-
-.triage-status-error {
-  color: #d9534f;
-  font-size: 0.85rem;
-}
-
-.overdue-alert {
-  background: linear-gradient(90deg, #ff6b6b, #ff8e8e);
+  background: #10b981;               /* Green assign */
   color: white;
-  padding: 20px;
-  border-radius: 10px;
-  margin-bottom: 20px;
-}
-
-.overdue-card {
-  background: rgba(255,255,255,0.2);
-  padding: 12px;
-  margin: 5px 0;
-  border-radius: 8px;
-  backdrop-filter: blur(10px);
-}
-
-.triage-row.overdue { border-left: 4px solid #dc3545; background: #f8d7da; }
-.triage-row.warning { border-left: 4px solid #ffc107; background: #fff3cd; }
-.triage-row.healthy { border-left: 4px solid #28a745; background: #d4edda; }
-
-.sla-badge {
-  padding: 4px 8px; border-radius: 12px; font-size: 0.8em; font-weight: bold; margin-bottom: 4px;
-}
-.sla-healthy { background: #d4edda; color: #155724; }
-.sla-warning { background: #fff3cd; color: #856404; }
-.sla-overdue { background: #f8d7da; color: #721c24; animation: pulse 2s infinite; }
-
-@keyframes pulse {
-  0% { opacity: 1; }
-  50% { opacity: 0.7; }
-  100% { opacity: 1; }
-}
-
-.badge { padding: 4px 8px; border-radius: 12px; font-weight: bold; }
-.overdue { background: #fee; color: #c33; }
-.warning { background: #ffd; color: #d66; }
-.ok { background: #efe; color: #3a6; }
-
-.sla-overdue { background: linear-gradient(135deg, #f87171, #ef4444); color: white; }
-
-.sla-header {
-  background: linear-gradient(135deg, #ea6666 0%, #a24b4b 100%);
-  color: white;
-  padding: 15px 20px;
-  border-radius: 12px;
-  margin-bottom: 20px;
-}
-
-.sla-title {
-  margin: 0;
-  font-size: 1.4rem;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.triage-link-btn {
-  background: none;
   border: none;
-  padding: 0;
-  margin: 0;
-  color: #2563eb;
-  text-decoration: underline;
-  cursor: pointer;
-  font: inherit;
-}
-.triage-link-btn:hover {
-  color: #1d4ed8;
-}
-
-.triage-detail-page {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 32px 16px 48px;
-  background: #f3f4f6;
-  min-height: calc(100vh - 60px);
-}
-
-.triage-back-btn {
-  align-self: flex-start;
-  margin-left: max(16px, calc((100% - 800px) / 2));
-  margin-bottom: 16px;
-  padding: 6px 12px;
+  padding: .4rem .875rem;
   border-radius: 6px;
-  border: 1px solid #d1d5db;
-  background: #f9fafb;
-  color: #111827;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.triage-back-btn:hover {
-  background: #e5e7eb;
-}
-
-.triage-detail-card {
-  width: 100%;
-  max-width: 800px;
-  background: #ffffff;
-  border-radius: 12px;
-  padding: 24px 32px 28px;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
-}
-
-.triage-detail-title {
-  text-align: center;
-  margin: 0 0 20px;
-  font-size: 22px;
-  color: #111827;
-}
-
-.triage-detail-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 16px 24px;
-  margin-bottom: 20px;
-}
-
-.triage-detail-item p {
-  margin: 0;
-  color: #111827;
-}
-
-.triage-detail-span {
-  grid-column: 1 / -1;
-}
-
-.triage-label {
-  display: block;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #6b7280;
-  margin-bottom: 4px;
-}
-
-.triage-image-wrapper {
-  margin-top: 8px;
-}
-
-.triage-image {
-  margin-top: 6px;
-  max-width: 100%;
-  border-radius: 10px;
-  border: 1px solid #e5e7eb;
-  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.18);
-}
-
-/* Loading / error states */
-.triage-loading,
-.triage-error {
-  text-align: center;
-  padding: 24px;
-  font-size: 15px;
-}
-
-.triage-error {
-  color: #b91c1c;
-}
-
-/* For the PhotoGallery inside triage detail */
-.triage-detail-card .photo-gallery {
-  margin-top: 16px;
-}
-
-.triage-detail-card .photo-gallery-main {
-  margin-bottom: 10px;
-}
-
-.triage-detail-card .photo-gallery-thumbnails {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.triage-detail-card .photo-gallery-thumbnail {
-  width: 80px;
-  height: 60px;
-  object-fit: cover;
-  border-radius: 6px;
-  cursor: pointer;
-  border: 2px solid transparent;
-}
-
-.triage-detail-card .photo-gallery-thumbnail.selected {
-  border-color: #2563eb;
-}
-
-/* Table styling */
-.triage-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 1rem;
-}
-
-.triage-table th,
-.triage-table td {
-  padding: 12px 8px;
-  text-align: left;
-  border-bottom: 1px solid #ddd;
-}
-
-.triage-table th {
-  background: #f8f9fa;
+  font-size: .8rem;
   font-weight: 600;
-  color: #333;
-}
-
-/* Open button (matches Assign green) */
-.triage-link-btn {
-  background: #e8f5e8;
-  color: #28a745;
-  border: 1px solid #28a745;
-  padding: 4px 12px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: all 0.2s;
-}
-
-.triage-link-btn:hover {
-  background: #28a745;
-  color: white;
-}
-
-/* Existing Assign button (if needed) */
-.triage-assign-btn {
-  background: #28a745;
-  color: white;
-  border: none;
-  padding: 6px 16px;
-  border-radius: 4px;
   cursor: pointer;
 }
-
 .triage-assign-btn:hover:not(:disabled) {
-  background: #218838;
+  background: #059669;
 }
 
-.triage-assign-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+.triage-select {
+  padding: .4rem .75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: .85rem;
+  background: white;
+  min-width: 140px;
 }
 
-/* Description text */
-.triage-description {
-  max-width: 200px;
-  font-size: 14px;
+/* Status Messages */
+.triage-status-success {
+  color: #10b981;
+  font-size: .8rem;
+  font-weight: 500;
+}
+.triage-status-error {
+  color: #ef4444;
+  font-size: .8rem;
+  font-weight: 500;
 }
 
-.triage-description span {
-  color: #555;
+/* Overdue Row */
+.triage-row.overdue-row {
+  border-left: 4px solid #ef4444;
+  background: #fef2f2;
+}
+
+/* Empty */
+.triage-empty {
+  color: #6b7280;
+  text-align: center;
+  padding: 3rem 1rem;
+  font-size: 1.1rem;
+}
+
+/* Animations */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .7; }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .triage-dashboard { padding: 1rem; }
+  .triage-table { font-size: .82rem; }
+  .triage-table th,
+  .triage-table td { padding: .6rem .5rem; }
+  .triage-description { max-width: 180px; }
 }

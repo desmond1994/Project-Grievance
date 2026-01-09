@@ -1,21 +1,17 @@
-// src/components/UserGrievanceDetail.js
+// src/components/TriageGrievanceDetail.js
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import apiClient from '../apiClient';
-import '../App.css';
+import './GrievanceDetail.css';
 import PhotoGallery from './PhotoGallery';
 
-export default function UserGrievanceDetail() {
+export default function TriageGrievanceDetail() {
   const { id } = useParams();
   const grievanceId = id;
   const [grievance, setGrievance] = useState(null);
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [showReopenReason, setShowReopenReason] = useState(false);
-  const [reopenReason, setReopenReason] = useState('');
-  const [reopenLoading, setReopenLoading] = useState(false);
-  const [reopenError, setReopenError] = useState(null);
 
   const navigate = useNavigate();
 
@@ -28,10 +24,19 @@ export default function UserGrievanceDetail() {
     const fetchData = async () => {
       try {
         setLoading(true);
+        // Fetch grievance details
         const gRes = await apiClient.get(`grievances/${grievanceId}/`);
         setGrievance(gRes.data);
-        const eRes = await apiClient.get(`grievances/${grievanceId}/events/`);
-        setEvents(eRes.data);
+        console.log('triage grievance data:', gRes.data);
+
+        // Optional triage events endpoint
+        try {
+          const eRes = await apiClient.get(`grievances/${grievanceId}/events/`);
+          setEvents(eRes.data);
+        } catch {
+          setEvents([]);
+        }
+
         setError(null);
       } catch {
         setError('Failed to load grievance details.');
@@ -42,89 +47,92 @@ export default function UserGrievanceDetail() {
     fetchData();
   }, [grievanceId]);
 
-  const handleReopen = async () => {
-    if (!reopenReason.trim()) {
-      setReopenError('Please provide a reason for reopening.');
-      return;
-    }
-    setReopenError(null);
-    setReopenLoading(true);
-    try {
-      await apiClient.post(`grievances/${grievanceId}/reopen/`, {
-        reason: reopenReason,
-      });
-      setReopenReason('');
-      const gRes = await apiClient.get(`grievances/${grievanceId}/`);
-      setGrievance(gRes.data);
-      const eRes = await apiClient.get(`grievances/${grievanceId}/events/`);
-      setEvents(eRes.data);
-    } finally {
-      setReopenLoading(false);
-    }
-  };
+  if (loading) return (
+    <div className="grievance-detail-card" style={{padding: '2rem'}}>
+      <div className="skeleton-line" style={{height: '40px', width: '120px', marginBottom: '1.5rem'}}></div>
+      <div className="skeleton-grid">
+        <div className="skeleton-card" style={{height: '70px'}}></div>
+        <div className="skeleton-card" style={{height: '70px'}}></div>
+        <div className="skeleton-card" style={{height: '100px', gridColumn: '1/-1'}}></div>
+      </div>
+    </div>
+  );
 
-  if (loading) return <p>Loading grievance details...</p>;
   if (error) return <p className="error-message">{error}</p>;
   if (!grievance) return null;
 
-  const normalizedStatus =
-    grievance.status === 'Pending at Triage' ? 'Pending' : grievance.status;
+  const normalizedStatus = 
+    grievance.status === 'Pending at Triage' 
+      ? 'Pending' 
+      : grievance.status || 'Pending';
+
+  // Handle both images and resolution_images
+  const triageImages = grievance.images || [];
+  const resolutionImages = grievance.resolution_images || [];
 
   return (
     <div className="grievance-detail-card">
       <button className="back-btn" onClick={() => navigate(-1)}>
         ← Back
       </button>
+      
       <div className="grievance-detail-header">
-        <span
-          className={`status-badge status-${normalizedStatus
-            .replace(/\s/g, '')
-            .toLowerCase()}`}
-        >
+        <span className={`status-badge status-${normalizedStatus.toLowerCase().replace(/ /g, '-').replace('at-triage', 'pending')}`}>
           {normalizedStatus}
         </span>
-
-        <h2>
-          {grievance.category_name ||
-            grievance.category?.name ||
-            'Complaint'}
-        </h2>
+        <div className="grievance-id">ID: #{grievance.id}</div>
       </div>
-      <p>
-        <i>
-          Last updated: {new Date(grievance.updated_at).toLocaleString()}
-        </i>
-      </p>
 
       <div className="grievance-detail-section">
-        <p>
-          <strong>Department:</strong>{' '}
-          {grievance.department_name ||
-            grievance.category?.department?.name ||
-            'N/A'}
-        </p>
-        <p>
-          <strong>Category:</strong>{' '}
-          {grievance.category?.full_path ||
-            grievance.category_name ||
-            grievance.category?.name ||
-            'N/A'}
-          {grievance.category_name === 'In Review' && (
-            <span> (at triage team)</span>
-          )}
-        </p>
-        <p>
-          <strong>Description:</strong> {grievance.description}
-        </p>
-        <p>
-          <strong>Location:</strong> {grievance.location || 'N/A'}
-        </p>
+        <div className="info-grid">
+          <div className="info-card">
+            <strong>Department:</strong> {grievance.category?.department?.name || grievance.department_name || 'Grievance Triage'}
+          </div>
+          <div className="info-card">
+            <strong>Category:</strong> {grievance.category?.full_path || grievance.category_name || grievance.category?.name || 'In Review'}
+          </div>
+          <div className="info-card full">
+            <strong>Description:</strong> {grievance.description}
+          </div>
+          <div className="info-card">
+            <strong>Location:</strong> {grievance.location || 'N/A'}
+          </div>
+         
+          <p style={{fontStyle: 'italic', marginTop: '1rem'}}>
+            Submitted: {grievance.created_at ? new Date(grievance.created_at).toLocaleString('en-IN') : 'N/A'}
+          </p>
+        </div>
+
+        {triageImages.length > 0 && (
+          <div style={{marginTop: '1.5rem'}}>
+            <h5>Submitted Images</h5>
+            <PhotoGallery 
+              photos={triageImages.map(img => ({
+                image: img.image?.startsWith('http') ? img.image : `http://127.0.0.1:8000${img.image}`
+              }))} 
+            />
+          </div>
+        )}
+
+        {resolutionImages.length > 0 && (
+          <div style={{marginTop: '1.5rem'}}>
+            <h5>Resolution Images</h5>
+            <PhotoGallery 
+              photos={resolutionImages.map(img => ({
+                image: img.image?.startsWith('http') ? img.image : `http://127.0.0.1:8000${img.image}`
+              }))} 
+            />
+          </div>
+        )}
       </div>
 
       <div className="grievance-detail-section">
         <h4>Event Log</h4>
         {events.length === 0 ? (
-          <p style={{ color: '#666', textAlign: 'center' }}>No events yet.</p>
+          <div className="empty-state">
+            📋 No events yet
+            <p style={{margin: '0.5rem 0 0 0', fontSize: '0.9rem'}}>Activity appears when status changes</p>
+          </div>
         ) : (
           <table className="event-log-table">
             <thead>
@@ -137,12 +145,10 @@ export default function UserGrievanceDetail() {
             </thead>
             <tbody>
               {events.map((ev) => (
-                <tr key={ev.id}>
-                  <td>{new Date(ev.timestamp).toLocaleString()}</td>
+                <tr key={ev.id || ev.timestamp}>
+                  <td>{ev.timestamp ? new Date(ev.timestamp).toLocaleString('en-IN') : ''}</td>
                   <td>{ev.action}</td>
-                  <td>
-                    {(ev.user && (ev.user.username || ev.user)) || 'System'}
-                  </td>
+                  <td>{(ev.user && (ev.user.username || ev.user)) || 'System'}</td>
                   <td>{ev.notes || ''}</td>
                 </tr>
               ))}
@@ -151,52 +157,18 @@ export default function UserGrievanceDetail() {
         )}
       </div>
 
-      {grievance.images && grievance.images.length > 0 && (
-  <PhotoGallery 
-    photos={grievance.images.map(img => ({
-      image: img.image.startsWith('http') ? img.image : `http://127.0.0.1:8000${img.image}`
-    }))} 
-  />
-)}
+      <div style={{textAlign: 'center', margin: '2rem 0'}}>
+        <button className="print-btn" onClick={() => window.print()}>🖨️ Print</button>
+      </div>
 
-      {['Resolved', 'Rejected'].includes(grievance.status) && (
-        <div className="grievance-detail-section">
-          {!showReopenReason && (
-            <button
-              className="reopen-btn"
-              onClick={() => setShowReopenReason(true)}
-              disabled={reopenLoading}
-            >
-              Reopen Grievance
-            </button>
-          )}
-
-          {showReopenReason && (
-            <>
-              <label htmlFor="reopenReason">Reason for Reopening:</label>
-              <br />
-              <textarea
-                id="reopenReason"
-                rows="3"
-                value={reopenReason}
-                onChange={(e) => setReopenReason(e.target.value)}
-                placeholder="Enter reason here..."
-                style={{ width: '100%', marginBottom: '10px' }}
-              />
-              {reopenError && (
-                <p className="error-message">{reopenError}</p>
-              )}
-              <button
-                className="reopen-btn"
-                onClick={handleReopen}
-                disabled={reopenLoading}
-              >
-                {reopenLoading ? 'Submitting...' : 'Submit Reason'}
-              </button>
-            </>
-          )}
-        </div>
-      )}
+      <div className="footer-updated">
+        <i>
+          Last updated: {grievance.updated_at 
+            ? new Date(grievance.updated_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
+            : 'Never'
+          }
+        </i>
+      </div>
     </div>
   );
 }

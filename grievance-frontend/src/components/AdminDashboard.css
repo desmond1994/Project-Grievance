@@ -324,3 +324,80 @@
     font-size: 1.8rem;
   }
 }
+
+/* Loading Skeleton */
+.loading-skeleton {
+  padding: 40px 20px;
+}
+
+.skeleton-title {
+  height: 32px;
+  width: 300px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+  border-radius: 8px;
+  margin-bottom: 24px;
+}
+
+.skeleton-stats {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.skeleton-stat {
+  flex: 1;
+  height: 80px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+  border-radius: 12px;
+}
+
+.skeleton-table {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.skeleton-row {
+  height: 60px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+@keyframes loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Error State */
+.error-state {
+  text-align: center;
+  padding: 60px 20px;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.retry-btn {
+  background: linear-gradient(135deg, #28a745, #20c997);
+  color: white;
+  border: none;
+  padding: 12px 32px;
+  border-radius: 25px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 20px;
+  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+  transition: all 0.2s ease;
+}
+
+.retry-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(40, 167, 69, 0.4);
+}

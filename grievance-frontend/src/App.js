@@ -29,16 +29,17 @@ function AppContent() {
     <div className="App">
       <nav className="main-app-nav">
   <div className="nav-left">
-    <span className="nav-logo">🚨</span>
+    <img 
+      src="https://cdn-icons-png.flaticon.com/128/9228/9228191.png"
+      alt="Feedback icon by Arkinasi - Flaticon"
+      className="nav-logo-icon"
+      width="24" height="24"
+    />
     <span className="nav-title">Grievance App</span>
   </div>
-
+  
   <div className="nav-right">
-    {isAuthenticated && (
-      <button className="nav-logout" onClick={logout}>
-        Logout
-      </button>
-    )}
+    {isAuthenticated && <button onClick={logout}>Logout</button>}
   </div>
 </nav>
 
