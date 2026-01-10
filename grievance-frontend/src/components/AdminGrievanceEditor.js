@@ -104,7 +104,11 @@ export default function AdminGrievanceEditor({ grievanceId, onUpdateSuccess }) {
       initGrievance();
       fetchEvents();
     }
-  }, [grievanceId, computeDaysLeft]);  // Fixed: removed user dep, extracted logic
+      if (grievanceId) {
+      initGrievance();
+      fetchEvents();
+    }
+  }, [grievanceId, computeDaysLeft, user?.role, user?.username]);  // ✅ FIXED
 
   const refreshEvents = async () => {
     try {

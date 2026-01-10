@@ -36,10 +36,10 @@ def suggest_complaint_type(request):
 
     description = request.data.get('description', '')
     labels = [
-        "Uncollected garbage", "Garbage dumping", "Contaminated water supply",
+        "Uncollected garbage", "Garbage dumping", "Illegal Garbage dumping", "Contaminated water supply",
         "Mosquitoes problems", "Issues with food quality", "Pothole Repair",
         "Streetlight Malfunction", "Low Water Pressure", "Blocked Sewers / Drainage",
-        "Stormwater Drain Issues", "Other"
+        "Stormwater Drain Issues", "Other",
     ]
     if not description:
         return Response({"suggestions": []})
@@ -124,6 +124,11 @@ class GrievanceViewSet(viewsets.ModelViewSet):
         user = self.request.user
         
         grievance = serializer.save(user=user)
+
+        if not grievance.due_date:
+            grievance.due_date = timezone.now().date() + timedelta(days=7)  # Default 7d
+            grievance.save(update_fields=['due_date'])
+            print(f"✅ AUTO SLA: due_date={grievance.due_date}")
         
         for img_file in self.request.FILES.getlist('images'):
             GrievanceImage.objects.create(
@@ -163,6 +168,11 @@ class GrievanceViewSet(viewsets.ModelViewSet):
         old_resolution_image = grievance.resolution_image.name if grievance.resolution_image else None
 
         updated = serializer.save()
+
+        if old_due_date and not updated.due_date:
+            updated.due_date = old_due_date  # Preserve!
+            updated.save(update_fields=['due_date'])
+            print(f"✅ PRESERVED due_date: {old_due_date}")
 
         # Triage reassignment: Auto-set department + status
         if self.request.user.groups.filter(name='TRIAGE_USER').exists() and updated.category and updated.category.department:
