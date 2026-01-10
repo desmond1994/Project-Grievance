@@ -11,21 +11,27 @@ const ADMIN_STATUS_TABS = [
   'Policy Decision', 'Pending Approval'
 ];
 
-const daysLeft = (dueDate) => {
-  if (!dueDate) return 'No SLA';
+const daysLeftNumber = (dueDate) => {
+  if (!dueDate) return null;
   const now = new Date();
   const due = new Date(dueDate);
-  const diff = Math.ceil((due - now) / (1000 * 60 * 60 * 24));
-  return diff > 0 ? `+${diff}d` : `${diff}d`;
+  return Math.floor((due - now) / (1000 * 60 * 60 * 24));
 };
 
-const getStatusColor = (days) => {
-  if (!days || days === 'No SLA') return 'secondary';
-  const numDays = parseInt(days.toString().replace(/[+-]/g, ''), 10);
-  if (numDays < 0) return 'danger';
-  if (numDays <= 2) return 'warning';
+const daysLeftLabel = (dueDate) => {
+  const days = daysLeftNumber(dueDate);
+  if (days === null) return '';
+  return `${days < 0 ? '' : '+'}${days}d`;
+};
+
+const getStatusColor = (dueDate) => {  // Changed param
+  const days = daysLeftNumber(dueDate);
+  if (days === null) return 'secondary';
+  if (days < 0) return 'danger';
+  if (days <= 2) return 'warning';
   return 'success';
 };
+
 
 export default function AdminDashboard() {
   const { authToken } = useContext(AuthContext);
@@ -178,10 +184,8 @@ export default function AdminDashboard() {
       <div className="admin-stats-header">
         <div className="stat-item stat-overdue">
           <span className="stat-number">
-            {grievances.filter(g => {
-              const d = daysLeft(g.due_date);
-              return d !== 'No SLA' && parseInt(d.replace(/[+-]/g, ''), 10) < 0;
-            }).length}
+            {grievances.filter(g => daysLeftNumber(g.due_date) < 0).length}
+
           </span>
           <span className="stat-label">Overdue</span>
         </div>
@@ -240,9 +244,11 @@ export default function AdminDashboard() {
                   </span>
                 </td>
                 <td>
-                  <span className={`sla-badge bg-${getStatusColor(daysLeft(g.due_date))}`}>
-                    {daysLeft(g.due_date)}
-                  </span>
+                 <span className={`sla-badge bg-${getStatusColor(g.due_date)}`}>
+  {daysLeftLabel(g.due_date)}
+</span>
+
+
                 </td>
                 <td className="admin-actions">
                   {['Policy Decision', 'Pending Approval'].includes(g.status) && (

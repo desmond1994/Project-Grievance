@@ -9,48 +9,44 @@ const EngineeringDashboard = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const grievancesPerPage = 10;
 
-  const daysLeft = (dueDate) => {
-    if (!dueDate) return 'No SLA';
+  // ✅ Clean functions - consistent with Admin/Health
+  const daysLeftNumber = (dueDate) => {
+    if (!dueDate) return null;
     const now = new Date();
     const due = new Date(dueDate);
-    const diff = Math.ceil((due - now) / (1000 * 60 * 60 * 24));
-    return diff;
+    return Math.floor((due - now) / (1000 * 60 * 60 * 24));
   };
 
   const daysLeftLabel = (dueDate) => {
-    const d = daysLeft(dueDate);
-    if (d === 'No SLA') return d;
-    return d > 0 ? `+${d}d` : `${d}d`;
+    const days = daysLeftNumber(dueDate);
+    if (days === null) return 'No SLA';
+    return `${days < 0 ? '' : '+'}${days}d`;
   };
 
-  const getStatusColor = (days) => {
-    if (days === 'No SLA') return 'secondary';
+  const getStatusColor = (dueDate) => {
+    const days = daysLeftNumber(dueDate);
+    if (days === null) return 'secondary';
     if (days < 0) return 'danger';
     if (days <= 2) return 'warning';
     return 'success';
   };
 
   useEffect(() => {
-  const fetchGrievances = async () => {
-  try {
-    setLoading(true);
-    setError(null);
-
-    // ✅ EXACT URL from your router
-    const response = await apiClient.get('admin-grievances/');  
-
-    setGrievances(response.data.results || response.data);
-  } catch (err) {
-    console.error('API Error:', err.response?.data || err.message);
-    setError("Could not load grievances.");
-  } finally {
-    setLoading(false);
-  }
-};
-  fetchGrievances();
-}, []);  // Remove deps—fetch once on mount
-
-
+    const fetchGrievances = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await apiClient.get('admin-grievances/');
+        setGrievances(response.data.results || response.data);
+      } catch (err) {
+        console.error('API Error:', err.response?.data || err.message);
+        setError("Could not load grievances.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchGrievances();
+  }, []);
 
   const filteredGrievances = grievances.filter((grievance) =>
     (grievance.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -63,8 +59,8 @@ const EngineeringDashboard = () => {
   const totalPages = Math.ceil(filteredGrievances.length / grievancesPerPage);
 
   const overdueCount = filteredGrievances.filter(g => {
-    const d = daysLeft(g.due_date);
-    return d !== 'No SLA' && d < 0;
+    const days = daysLeftNumber(g.due_date);
+    return days !== null && days < 0;
   }).length;
 
   if (loading) return <h2 className="text-center">Loading grievances...</h2>;
@@ -104,37 +100,34 @@ const EngineeringDashboard = () => {
           </thead>
           <tbody>
             {currentGrievances.length > 0 ? (
-              currentGrievances.map((grievance) => {
-                const d = daysLeft(grievance.due_date);
-                return (
-                  <tr key={grievance.id} className="align-middle">
-                    <td><strong>#{grievance.id}</strong></td>
-                    <td>{grievance.title}</td>
-                    <td className="text-truncate" style={{ maxWidth: '200px' }}>
-                      {grievance.description}
-                    </td>
-                    <td>
-                      <span className={`badge bg-${getStatusColor(d)}`}>
-                        {grievance.status}
-                      </span>
-                    </td>
-                    <td>{grievance.due_date ? new Date(grievance.due_date).toLocaleDateString() : 'No SLA'}</td>
-                    <td>
-                      <span className={`badge bg-${getStatusColor(d)}`}>
-                        {d === 'No SLA' ? 'No SLA' : daysLeftLabel(grievance.due_date)}
-                      </span>
-                    </td>
-                    <td>
-                      <button className="btn btn-primary btn-sm me-1">
-                        Update Status
-                      </button>
-                      <button className="btn btn-outline-secondary btn-sm">
-                        View Details
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })
+              currentGrievances.map((grievance) => (
+                <tr key={grievance.id} className="align-middle">
+                  <td><strong>#{grievance.id}</strong></td>
+                  <td>{grievance.title}</td>
+                  <td className="text-truncate" style={{ maxWidth: '200px' }}>
+                    {grievance.description}
+                  </td>
+                  <td>
+                    <span className={`badge bg-${getStatusColor(grievance.due_date)}`}>
+                      {grievance.status}
+                    </span>
+                  </td>
+                  <td>{grievance.due_date ? new Date(grievance.due_date).toLocaleDateString() : 'No SLA'}</td>
+                  <td>
+                    <span className={`badge bg-${getStatusColor(grievance.due_date)}`}>
+                      {daysLeftLabel(grievance.due_date)}
+                    </span>
+                  </td>
+                  <td>
+                    <button className="btn btn-primary btn-sm me-1">
+                      Update Status
+                    </button>
+                    <button className="btn btn-outline-secondary btn-sm">
+                      View Details
+                    </button>
+                  </td>
+                </tr>
+              ))
             ) : (
               <tr>
                 <td colSpan="7" className="text-center py-4">

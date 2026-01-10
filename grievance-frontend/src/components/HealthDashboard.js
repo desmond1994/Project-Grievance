@@ -11,24 +11,26 @@ const HealthDashboard = () => {
   const grievancesPerPage = 10;
 
   const daysLeftNumber = (dueDate) => {
-    if (!dueDate) return null;
-    const now = new Date();
-    const due = new Date(dueDate);
-    return Math.ceil((due - now) / (1000 * 60 * 60 * 24));
-  };
+  if (!dueDate) return null;
+  const now = new Date();
+  const due = new Date(dueDate);
+  return Math.floor((due - now) / (1000 * 60 * 60 * 24));
+};
 
-  const daysLeftLabel = (dueDate) => {
-    const d = daysLeftNumber(dueDate);
-    if (d === null) return 'No SLA';
-    return d > 0 ? `+${d}d` : `${d}d`;
-  };
+const daysLeftLabel = (dueDate) => {
+  const days = daysLeftNumber(dueDate);
+  if (days === null) return '';
+  return `${days < 0 ? '' : '+'}${days}d`;
+};
 
-  const getStatusColor = (d) => {
-    if (d === null) return 'secondary';
-    if (d < 0) return 'danger';
-    if (d <= 2) return 'warning';
-    return 'success';
-  };
+const getStatusColor = (dueDate) => {
+  const days = daysLeftNumber(dueDate);
+  if (days === null) return 'secondary';
+  if (days < 0) return 'danger';
+  if (days <= 2) return 'warning';
+  return 'success';
+};
+
 
   useEffect(() => {
     const fetchGrievances = async () => {
@@ -37,13 +39,15 @@ const HealthDashboard = () => {
         setError(null);
 
         // ✅ RULE: baseURL already has /api/ so relative endpoint only
-        const response = await apiClient.get('grievances/', {
-          pparams: {
-  department: 'Health (Public Health)',  // ✅ Screenshot EXACT (no spaces after)
-  page: currentPage,
-  search: searchTerm,
-},
-        });
+const response = await apiClient.get('/grievances/', {
+  params: {      // ✅ FIXED
+    department: 'Health (Public Health)',
+    page: currentPage,
+    search: searchTerm
+  }
+});
+
+
 
         setGrievances(response.data.results || response.data);
       } catch (err) {
