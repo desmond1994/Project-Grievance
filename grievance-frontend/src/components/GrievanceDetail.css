@@ -1,182 +1,156 @@
-/* COMPLETE THEME CSS - Blue GrievanceApp Match (Replace ENTIRE file) */
-
+/* COMPLETE RESPONSIVE THEME - NO SCROLL EVENT LOG */
 * { box-sizing: border-box; }
 
 .grievance-detail-card {
-  max-width: 700px;
-  margin: 0 auto;
-  padding: 1rem;
-  background: #f8fafc;              /* List page bg */
-  border: 1px solid #e2e8f0;        /* Table borders */
-  border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-  line-height: 1.4;
-  font-family: system-ui, -apple-system, sans-serif;
-  font-size: .92rem;
+  max-width: 800px; margin: 0 auto; padding: 1rem;
+  background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08); font-family: system-ui, sans-serif;
+  font-size: .92rem; line-height: 1.4;
 }
 
 /* Header */
 .grievance-detail-header {
-  display: flex;
-  align-items: center;
-  gap: .75rem;
-  margin-bottom: .75rem;
-  padding-bottom: .5rem;
-  border-bottom: 1px solid #e2e8f0;     /* Theme blue-gray */
+  display: flex; align-items: center; gap: .75rem; margin-bottom: .75rem;
+  padding-bottom: .5rem; border-bottom: 1px solid #e2e8f0;
 }
-
 .status-badge {
-  padding: .2rem .6rem;
-  font-size: .7rem;
-  border-radius: 20px;
-  font-weight: 700;
-  box-shadow: 0 1px 2px rgba(59,130,246,0.15);
+  padding: .2rem .6rem; font-size: .7rem; border-radius: 20px; font-weight: 700;
 }
 .status-pending { background: #fef3c7; color: #92400e; }
-.status-in_progress, .status-in_review { background: #dbeafe; color: #1e40af; }  /* Exact list badge */
+.status-in_progress, .status-in_review { background: #dbeafe; color: #1e40af; }
 .status-resolved { background: #d1fae5; color: #065f46; }
 .status-rejected { background: #fee2e2; color: #b91c1c; }
+.grievance-id { font-size: .88rem; color: #64748b; font-weight: 600; }
 
-.grievance-id { 
-  font-size: .88rem; 
-  color: #64748b; 
-  font-weight: 600; 
+/* Buttons */
+.back-btn, .print-btn {
+  padding: .4rem .9rem; border-radius: 6px; font-size: .78rem; font-weight: 600;
+  cursor: pointer; transition: all .15s; border: none; margin-bottom: .5rem;
 }
-
-/* Buttons - Theme Blue */
-.back-btn, .reopen-btn, .print-btn {
-  padding: .4rem .9rem;
-  border-radius: 6px;
-  font-size: .78rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all .15s ease;
-}
-.back-btn { 
-  background: #3b82f6;                /* Matches "View Details" */
-  color: white; 
-  border: 1px solid #3b82f6;
-  margin-bottom: .5rem;
-}
+.back-btn { background: #3b82f6; color: white; }
 .back-btn:hover { background: #2563eb; }
-.reopen-btn { 
-  background: #ef4444; 
-  color: white; 
-  border: 1px solid #ef4444;
-}
-.reopen-btn:hover:not(:disabled) { background: #dc2626; }
-.reopen-btn:disabled { background: #fee2e2; color: #dc2626; }
-.print-btn { 
-  background: #f1f5f9; 
-  border: 1px solid #cbd5e1;
-  color: #475569;
-}
+.print-btn { background: #f1f5f9; border: 1px solid #cbd5e1; color: #475569; }
 .print-btn:hover { background: #e2e8f0; }
 
-/* SINGLE COLUMN INFO - Blue Tint */
+/* Info Grid */
 .info-grid {
-  display: flex;
-  flex-direction: column;
-  gap: .4rem;
-  margin-bottom: 1rem;
-  padding: .6rem;
-  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);  /* Blue gradient */
-  border: 1px solid #93c5fd;
-  border-radius: 8px;
+  display: flex; flex-direction: column; gap: .4rem; margin-bottom: 1rem;
+  padding: .75rem; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  border: 1px solid #93c5fd; border-radius: 8px;
 }
-
-.info-item {
-  display: flex;
-  align-items: flex-start;
-  gap: .4rem;
-  padding: .25rem 0;
-  font-size: .88rem;
-}
-
-.info-item strong {
-  color: #1d4ed8;                       /* Theme blue labels */
-  font-weight: 600;
-  font-size: .86rem;
-  white-space: nowrap;
-  flex-shrink: 0;
-  min-width: 75px;
-  padding-right: .4rem;
-  border-right: 1px solid #bfdbfe;      /* Light blue divider */
-}
-
-.info-item span {
-  flex: 1;
-  color: #1f2937;
-  line-height: 1.4;
-}
+.info-item strong { color: #1d4ed8; font-weight: 600; min-width: 75px; padding-right: .4rem; border-right: 1px solid #bfdbfe; }
+.info-item span { flex: 1; color: #1f2937; }
 
 /* Sections */
 .grievance-detail-section {
-  margin-bottom: .75rem;
-  padding: .75rem;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  margin-bottom: .75rem; padding: .75rem; background: white;
+  border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
 }
-
 .grievance-detail-section h4 {
-  margin: 0 0 .4rem 0;
-  color: #1e3a8a;                       /* Deep theme blue */
-  font-size: .95rem;
-  font-weight: 700;
-  padding-bottom: .2rem;
-  border-bottom: 2px solid #3b82f6;     /* Blue underline */
+  margin: 0 0 .4rem 0; color: #1e3a8a; font-weight: 700; padding-bottom: .2rem;
+  border-bottom: 2px solid #3b82f6;
 }
 
-/* Table */
+/* 🎯 EVENT LOG - RESPONSIVE NO SCROLL */
+.table-container { width: 100%; overflow-x: auto; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+
 .event-log-table {
-  font-size: .82rem;
-  width: 100%;
-  border-collapse: collapse;
-  border-radius: 6px;
-  overflow: hidden;
-  background: white;
+  width: 100%; min-width: 520px; border-collapse: collapse; font-size: .85rem;
 }
-.event-log-table th,
-.event-log-table td { padding: .4rem .6rem; }
-.event-log-table th { 
-  background: #dbeafe;                  /* Blue header match */
-  color: #1e40af;
-  font-weight: 600; 
-  font-size: .76rem;
-  text-transform: uppercase;
-  letter-spacing: .03em;
+
+.event-log-table th, .event-log-table td {
+  padding: .5rem .45rem; text-align: left; border-bottom: 1px solid #f1f5f9;
+  white-space: nowrap;
+}
+.event-log-table th {
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  color: #1e40af; font-weight: 600; font-size: .78rem; text-transform: uppercase;
+  letter-spacing: .5px;
+}
+.event-log-table tr:hover { background: #f8fafc; }
+
+/* Documents */
+.doc-links {
+  display: flex; gap: 4px; align-items: center;
+}
+.file-link {
+  width: 26px; height: 26px; border-radius: 4px; text-decoration: none;
+  font-size: 13px; display: flex; align-items: center; justify-content: center;
+  transition: all .2s;
+}
+.doc-link { background: #fff3cd; color: #d97706; border: 1px solid #fed7aa; }
+.image-link { background: #d1ecf1; color: #0c5460; border: 1px solid #b6d0d6; }
+.file-link:hover { transform: scale(1.1); box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
+
+/* Empty */
+.empty-state {
+  padding: 2rem; text-align: center; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 2px dashed #cbd5e1; border-radius: 12px; color: #64748b; margin: 1rem 0;
 }
 
 /* Footer */
 .footer-updated {
-  margin-top: 1rem;
-  padding-top: .75rem;
-  border-top: 1px solid #e2e8f0;
-  text-align: center;
-  color: #64748b;
-  font-size: .82rem;
-  font-style: italic;
-  background: #f8fafc;
+  margin-top: 1.5rem; padding: .75rem; border-top: 1px solid #e2e8f0;
+  text-align: center; color: #64748b; font-size: .82rem; background: #f8fafc;
   border-radius: 6px;
-  padding: .75rem;
 }
 
+/* 🎯 MOBILE - CARD STACK (PERFECT FIT, ZERO SCROLL) */
+@media (max-width: 768px) {
+  .grievance-detail-card { margin: 0 .5rem; padding: .75rem; }
+  
+  .event-log-table {
+    font-size: .82rem; border: none;
+  }
+  .event-log-table thead { display: none; }
+  .event-log-table tr {
+    display: block; margin-bottom: .75rem; padding: 1rem .75rem;
+    border: 1px solid #e2e8f0; border-radius: 10px; background: white;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+  }
+  .event-log-table td {
+    display: block; padding: .4rem 0; border: none !important;
+    padding-left: 45%; position: relative; min-height: 20px;
+  }
+  .event-log-table td:before {
+    content: attr(data-label); position: absolute; left: 0; top: .4rem;
+    width: 42%; font-weight: 700; color: #1e40af; font-size: .78rem;
+  }
+  .event-log-table td:nth-child(1):before { content: "Date"; }
+  .event-log-table td:nth-child(2):before { content: "Action"; }
+  .event-log-table td:nth-child(3):before { content: "User"; }
+  .event-log-table td:nth-child(4):before { content: "Notes"; }
+  .event-log-table td:nth-child(5):before { content: "Files"; }
+  
+  .doc-links { gap: 8px; }
+  .file-link { width: 30px; height: 30px; font-size: 15px; }
+}
 
-/* Mobile */
-@media (max-width: 640px) {
-  .grievance-detail-card { margin: .25rem; padding: .75rem; }
-  .info-item strong { min-width: 65px; font-size: .84rem; }
+@media (max-width: 480px) {
+  .event-log-table tr { padding: .75rem .5rem; margin-bottom: .5rem; }
+  .event-log-table td { padding-left: 50%; }
+  .event-log-table td:before { width: 48%; }
 }
 
 /* Print */
 @media print {
-  .back-btn, .reopen-btn, .print-btn, .footer-updated { display: none; }
-  .grievance-detail-card { 
-    box-shadow: none; 
-    padding: 0; 
-    background: white; 
-    border: none;
-  }
+  .back-btn, .print-btn, .empty-state, .table-container { display: block !important; }
+  .table-container { overflow: visible !important; box-shadow: none; }
+  .event-log-table { font-size: 11px; min-width: auto; }
 }
+/* 4-COLUMN CLEANER LAYOUT */
+.event-log-table { min-width: 420px; font-size: .88rem; }
+.event-log-table th:nth-child(1), .event-log-table td:nth-child(1) { width: 18%; } /* Date */
+.event-log-table th:nth-child(2), .event-log-table td:nth-child(2) { width: 28%; } /* Action */
+.event-log-table th:nth-child(3), .event-log-table td:nth-child(3) { width: 35%; } /* Notes */
+.event-log-table th:nth-child(4), .event-log-table td:nth-child(4) { width: 19%; } /* Docs */
+
+/* Mobile Cards */
+@media (max-width: 768px) {
+  .event-log-table td:nth-child(3):before { content: "Notes"; } /* Updated labels */
+  .event-log-table td:nth-child(4):before { content: "Files"; }
+  .doc-links { gap: 6px; }
+}
+
+/* Action badges bigger */
+.status-badge { padding: .25rem .5rem; font-size: .72rem; min-height: 20px; display: inline-flex; align-items: center; }

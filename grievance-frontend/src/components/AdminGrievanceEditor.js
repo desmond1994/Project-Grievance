@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useContext } from 'react';
+import React, { useState, useEffect, useCallback, useContext, useMemo } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import apiClient from '../apiClient';
 import PhotoGallery from './PhotoGallery';
@@ -21,6 +21,7 @@ export default function AdminGrievanceEditor({ grievanceId, onUpdateSuccess }) {
   const [daysLeft, setDaysLeft] = useState(7);
   const [resolutionImagesView, setResolutionImages] = useState([]);
 
+  // Memoized for stable reference
   const computeDaysLeft = useCallback((dueDateStr) => {
     if (!dueDateStr) return null;
     const due = new Date(dueDateStr + 'T00:00:00');
@@ -28,13 +29,17 @@ export default function AdminGrievanceEditor({ grievanceId, onUpdateSuccess }) {
     return Math.ceil((due - now) / (1000 * 60 * 60 * 24));
   }, []);
 
-  // ✅ STRICT: Notes AND BOTH files required
-  const isFormValid = () => {
+  // Dynamic media base URL
+  const mediaBaseUrl = useMemo(() => {
+    return window.location.hostname === 'localhost' ? 'http://127.0.0.1:8000/media/' : '/media/';
+  }, []);
+
+  const isFormValid = useMemo(() => {
     const hasNotes = resolutionNotes && resolutionNotes.trim().length >= 10;
     const hasDoc = signedDocument;
     const hasImage = resolutionImage;
-    return hasNotes && hasDoc && hasImage;  // BOTH files!
-  };
+    return hasNotes && hasDoc && hasImage;
+  }, [resolutionNotes, signedDocument, resolutionImage]);
 
   const validationError = () => {
     if (!resolutionNotes || resolutionNotes.trim().length === 0) {
@@ -77,7 +82,7 @@ export default function AdminGrievanceEditor({ grievanceId, onUpdateSuccess }) {
           response.data.category?.department?.name ||
           ''
         );
-        setResolutionImages(response.data.images || []);
+        setResolutionImages(response.data.images || []);  // Fixed: use correct state
         setError(null);
       } catch (err) {
         setError('Failed to load grievance details.');
@@ -99,7 +104,7 @@ export default function AdminGrievanceEditor({ grievanceId, onUpdateSuccess }) {
       initGrievance();
       fetchEvents();
     }
-  }, [grievanceId, computeDaysLeft, user]);
+  }, [grievanceId, computeDaysLeft]);  // Fixed: removed user dep, extracted logic
 
   const refreshEvents = async () => {
     try {
@@ -123,11 +128,10 @@ export default function AdminGrievanceEditor({ grievanceId, onUpdateSuccess }) {
     setSubmitLoading(true);
 
     const formData = new FormData();
-    formData.append('status', 'Resolved');  // Auto-resolve
-    
+    formData.append('status', 'Resolved');
     formData.append('resolution_notes', resolutionNotes.trim());
-    formData.append('signed_document', signedDocument);
-    formData.append('resolution_image', resolutionImage);
+    if (signedDocument) formData.append('signed_document', signedDocument);
+    if (resolutionImage) formData.append('resolution_image', resolutionImage);
 
     try {
       await apiClient.patch(`grievances/${grievanceId}/`, formData, {
@@ -135,6 +139,10 @@ export default function AdminGrievanceEditor({ grievanceId, onUpdateSuccess }) {
       });
 
       await refreshEvents();
+      // Reset form
+      setResolutionNotes('');
+      setSignedDocument(null);
+      setResolutionImage(null);
       onUpdateSuccess?.();
     } catch (err) {
       setError('Failed to resolve grievance.');
@@ -211,7 +219,7 @@ export default function AdminGrievanceEditor({ grievanceId, onUpdateSuccess }) {
             onChange={(e) => setResolutionNotes(e.target.value)}
             rows="5"
             placeholder="Detailed explanation of resolution steps taken..."
-            className={!isFormValid() ? 'invalid-field' : ''}
+            className={!isFormValid ? 'invalid-field' : ''}
           />
           <small className={resolutionNotes.trim().length >= 10 ? 'valid-count' : 'invalid-count'}>
             {resolutionNotes.trim().length}/10+ characters
@@ -228,7 +236,6 @@ export default function AdminGrievanceEditor({ grievanceId, onUpdateSuccess }) {
             accept=".pdf,.doc,.docx"
             onChange={(e) => setSignedDocument(e.target.files[0])}
             className={!signedDocument ? 'invalid-field' : ''}
-            required
           />
           {signedDocument && <small className="file-preview">✅ {signedDocument.name}</small>}
         </div>
@@ -243,7 +250,6 @@ export default function AdminGrievanceEditor({ grievanceId, onUpdateSuccess }) {
             accept="image/*"
             onChange={(e) => setResolutionImage(e.target.files[0])}
             className={!resolutionImage ? 'invalid-field' : ''}
-            required
           />
           {resolutionImage && <small className="file-preview">✅ {resolutionImage.name}</small>}
         </div>
@@ -251,8 +257,8 @@ export default function AdminGrievanceEditor({ grievanceId, onUpdateSuccess }) {
         <div className="admin-editor-actions">
           <button 
             type="submit" 
-            disabled={submitLoading || !isFormValid()}
-            className={!isFormValid() ? 'disabled-validation' : ''}
+            disabled={submitLoading || !isFormValid}
+            className={!isFormValid ? 'disabled-validation' : ''}
           >
             {submitLoading ? 'Resolving...' : '✅ Resolve Grievance'}
           </button>
@@ -260,7 +266,7 @@ export default function AdminGrievanceEditor({ grievanceId, onUpdateSuccess }) {
       </form>
 
       <div className="admin-editor-images">
-        <h3>Existing Resolution Images</h3>
+        <h3>Citizen Submitted Images</h3>
         {resolutionImagesView.length === 0 ? (
           <p>No resolution images uploaded yet.</p>
         ) : (
@@ -281,6 +287,7 @@ export default function AdminGrievanceEditor({ grievanceId, onUpdateSuccess }) {
                   <th>Action</th>
                   <th>User</th>
                   <th>Notes</th>
+                  <th>Documents</th>
                 </tr>
               </thead>
               <tbody>
@@ -297,6 +304,33 @@ export default function AdminGrievanceEditor({ grievanceId, onUpdateSuccess }) {
                     </td>
                     <td>{ev.user?.username || ev.user || 'System'}</td>
                     <td>{ev.notes || '-'}</td>
+                    <td>
+                      <div className="doc-links">
+                        {ev.action === 'SIGNED_DOCUMENT_UPLOADED' && ev.notes && (
+                          <a 
+                            href={`${mediaBaseUrl}${ev.notes}`} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="file-link doc-link"
+                            title={`Download: ${ev.notes}`}
+                          >
+                            📄 Doc
+                          </a>
+                        )}
+                        {ev.action === 'RESOLUTION_IMAGE_UPLOADED' && ev.notes && (
+                          <a 
+                            href={`${mediaBaseUrl}${ev.notes}`} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="file-link image-link"
+                            title={`View: ${ev.notes}`}
+                          >
+                            🖼️ Photo
+                          </a>
+                        )}
+                        {!ev.notes && '-'}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>

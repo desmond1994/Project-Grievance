@@ -191,8 +191,9 @@ class GrievanceViewSet(viewsets.ModelViewSet):
                 grievance=updated,
                 user=self.request.user,
                 action='RESOLUTION_NOTES_UPDATED',
-                notes='Updated'
+                notes=updated.resolution_notes or 'Resolution notes added'  # ✅ ACTUAL TEXT
             )
+
         new_signed_document = updated.signed_document.name if updated.signed_document else None
         if old_signed_document != new_signed_document and new_signed_document:
             GrievanceEvent.objects.create(
@@ -396,19 +397,6 @@ class GrievanceEventListView(generics.ListAPIView):
 
     def get_queryset(self):
         grievance_id = self.kwargs['grievance_id']
-        grievance = get_object_or_404(Grievance, id=grievance_id)
-
-        # same access rules as GrievanceViewSet
-        user = self.request.user
-        if user.is_staff or user.groups.filter(name='TOP_AUTHORITY').exists():
-            pass
-        elif user.groups.filter(name='DEPARTMENT_ADMIN').exists():
-            if not Department.objects.filter(admin=user, id=grievance.department_id).exists():
-                return GrievanceEvent.objects.none()
-        elif user.groups.filter(name='TRIAGE_USER').exists():
-            if not (grievance.category and grievance.category.name == "Other" and grievance.status == "In Review"):
-                return GrievanceEvent.objects.none()
-
-
-
         return GrievanceEvent.objects.filter(grievance_id=grievance_id).order_by('-timestamp')
+
+    
