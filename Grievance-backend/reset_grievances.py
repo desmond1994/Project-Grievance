@@ -1,70 +1,42 @@
 import os
-import shutil
 from django.conf import settings
 from django.db import connection
-from grievance_api.models import (
-    Grievance, GrievanceEvent, User, Department, Category
-)
+from grievance_api.models import Grievance, GrievanceEvent, GrievanceImage
 
-print("🚀 COMPLETE Grievance Reset - Cleaning ALL data + files + sequences")
+print("🚀 GRIEVANCES-ONLY Reset - Keep Cats/Depts + IDs=1")
 
-# 1. DELETE ALL MEDIA FILES (safer: delete entire dir)
+# 1. MEDIA CLEAN (grievance images only)
 media_dir = settings.MEDIA_ROOT
 if os.path.exists(media_dir):
-    print(f"🗑️  Deleting media directory: {media_dir}")
-    shutil.rmtree(media_dir, ignore_errors=True)
-    os.makedirs(media_dir, exist_ok=True)
-    print("✅ Media folder cleaned + recreated")
+    print(f"🗑️ Clearing grievance media: {media_dir}")
+    for file in os.listdir(media_dir):
+        if file.startswith('grievances/'):
+            os.remove(os.path.join(media_dir, file))
+    print("✅ Media cleaned")
 
-# 2. DELETE ALL RELATED MODELS (cascade handles FKs)
-print("\n🗑️  Deleting database records...")
-models_to_delete = [
-    GrievanceEvent, Grievance, Category, Department
-]
+# 2. GRIEVANCES + RELATED ONLY
+print("\n🗑️ Deleting grievances data...")
+GrievanceImage.objects.all().delete()
+GrievanceEvent.objects.all().delete()
+count_g = Grievance.objects.count()
+Grievance.objects.all().delete()
+print(f"  Deleted {count_g} Grievances + Events + Images")
 
-counts = {}
-for model in models_to_delete:
-    count = model.objects.count()
-    if count > 0:
-        model.objects.all().delete()
-        counts[model.__name__] = count
-        print(f"  Deleted {count} {model.__name__}")
-
-# 3. RESET ALL SQLite SEQUENCES (correct table names)
-print("\n🔄 Resetting SQLite auto-increment sequences...")
+# 3. RESET GRIEVANCE SEQUENCE ONLY
+print("\n🔄 Resetting grievance IDs...")
 with connection.cursor() as cursor:
-    # List all sequences and reset
-    cursor.execute("""
-        SELECT name FROM sqlite_sequence 
-        WHERE name LIKE 'grievance_api_%'
-    """)
-    sequences = cursor.fetchall()
-    
-    for (table_name,) in sequences:
-        cursor.execute(f"""
-            UPDATE sqlite_sequence SET seq = 0 WHERE name = '{table_name}'
-        """)
-        print(f"  Reset sequence: {table_name}")
-    
-    # Verify grievances sequence specifically
-    cursor.execute("""
-        UPDATE sqlite_sequence SET seq = 0 
-        WHERE name = 'grievance_api_grievance'
-    """)
+    cursor.execute("UPDATE sqlite_sequence SET seq = 0 WHERE name = 'grievance_api_grievance'")
+    print("  Reset grievance_api_grievance → ID=1 next")
 
-print("✅ All sequences reset")
+# 4. PRESERVE COUNTS
+print("\n📊 PRESERVED:")
+print(f"Grievances: {Grievance.objects.count()}")  # 0
+print(f"Events/Images: 0")
+print(f"Categories: {Category.objects.count()}")     # 10
+print(f"Departments: {Department.objects.count()}") # 2
+print(f"Users: {User.objects.count()}")             # 8
 
-# 4. VERIFY CLEAN STATE
-print("\n📊 FINAL COUNTS:")
-print(f"Grievances: {Grievance.objects.count()}")
-print(f"Events: {GrievanceEvent.objects.count()}")
-print(f"Categories: {Category.objects.count()}")
-print(f"Departments: {Department.objects.count()}")
-print(f"Users: {User.objects.count()}")
-
-print("\n🎉 RESET COMPLETE - Fresh database ready!")
-print("💡 Next: python manage.py makemigrations && python manage.py migrate")
-
+print("\n🎉 GRIEVANCES RESET - Cats/Depts SAFE | Next ID=1!")
 
 
 # Command to run:

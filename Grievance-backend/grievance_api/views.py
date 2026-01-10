@@ -25,6 +25,7 @@ from rest_framework.authentication import TokenAuthentication
 from django.db.models import Count
 from django.shortcuts import get_object_or_404
 
+
 # AI Complaint Type Suggestion
 classifier = None  # ✅ do not load model here
 

@@ -65,34 +65,29 @@ class Grievance(models.Model):
     due_date = models.DateField(null=True, blank=True)  # ✅ DateField safe
     
     def save(self, *args, **kwargs):
+        from datetime import timedelta
         now_date = timezone.now().date()
-
-        # detect status change (only if already exists)
-        old_status = None
-        if self.pk:
-            old_status = Grievance.objects.filter(pk=self.pk).values_list('status', flat=True).first()
-
-        status_changed = (old_status is not None and old_status != self.status)
-
-        # if status changed, reset SLA
-        if status_changed:
-            self.due_date = None
-
-        # then your existing SLA logic can run
-        if self.department and not self.due_date:
-            self.due_date = now_date + timedelta(days=self.department.sla_days)
-
-        if not self.due_date:
+        
+        # 🔥 ALWAYS ensure due_date (don't reset!)
+        if not self.due_date and self.created_at:
+            base_days = 7  # Default
+            
+            # Status-based SLA
             if self.status == 'In Review':
-                self.due_date = now_date + timedelta(days=7)
+                base_days = 7
             elif self.status == 'Pending Approval':
-                self.due_date = now_date + timedelta(days=3)
+                base_days = 3
             elif self.status == 'In Progress':
-                self.due_date = now_date + timedelta(days=7)
+                base_days = 7
             elif self.status == 'Policy Decision':
-                self.due_date = now_date + timedelta(days=5)
-
+                base_days = 5
+            elif self.department and hasattr(self.department, 'sla_days'):
+                base_days = self.department.sla_days
+                
+            self.due_date = self.created_at.date() + timedelta(days=base_days)
+        
         super().save(*args, **kwargs)
+
 
 
 
